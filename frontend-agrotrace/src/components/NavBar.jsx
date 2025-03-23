@@ -1,8 +1,10 @@
-import { Link } from "react-router-dom";
-import { useState } from "react";
-import { Menu, X } from "lucide-react"; // Using Lucide icons for the menu and close icons.
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { ConnectButton } from 'thirdweb/react';
+import { client } from '../client';
 
-const Navbar = () => {
+const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -40,48 +42,39 @@ const Navbar = () => {
             >
               Scan QR Code
             </Link>
+            {/* Connect Wallet Button */}
+            <div className="ml-4">
+              <ConnectButton client={client} />
+            </div>
           </div>
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden text-white focus:outline-none"
+            className="md:hidden text-white"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
 
-        {/* Mobile Menu Dropdown */}
+        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden flex flex-col bg-emerald-600 p-4 rounded-lg shadow-md ">
-            <Link
-              to="/"
-              className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium transition-colors border-1 border-white mb-1"
-              onClick={() => setIsMenuOpen(false)}
-            >
+          <div className="md:hidden flex flex-col space-y-2 mt-2 px-2 pb-3">
+            <Link to="/" className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium">
               Home
             </Link>
-            <Link
-              to="/register-farmer"
-              className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium transition-colors border-1 border-white mb-1"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link to="/register-farmer" className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium">
               Register Farmer
             </Link>
-            <Link
-              to="/register-agrotrader"
-              className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium transition-colors border-1 border-white mb-1"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link to="/register-agrotrader" className="text-white hover:bg-emerald-700 px-3 py-2 rounded-md text-sm font-medium">
               Register AgroTrader
             </Link>
-            <Link
-              to="/scan-qr"
-              className="bg-teal-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-teal-600 transition-colors border-1 border-white"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link to="/scan-qr" className="bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-teal-600 transition-colors">
               Scan QR Code
             </Link>
+            <div className="mt-2">
+              <ConnectButton client={client} />
+            </div>
           </div>
         )}
       </div>
@@ -89,4 +82,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default NavBar;

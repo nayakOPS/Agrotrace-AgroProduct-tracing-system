@@ -1,4 +1,4 @@
-export const ContactUs = () => {
+const ContactUs = () => {
     return (
       <section className="min-h-screen px-4 bg-gradient-to-b from-teal-50 to-emerald-50 flex items-center justify-center">
         <div className="max-w-4xl mx-auto w-full py-16">
@@ -47,3 +47,5 @@ export const ContactUs = () => {
       </section>
     );
   };
+
+  export default ContactUs;

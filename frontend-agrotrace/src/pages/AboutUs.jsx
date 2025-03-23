@@ -1,4 +1,6 @@
-export const AboutUs = () => {
+import React from 'react';
+
+const AboutUs = () => {
     return (
       <section className="min-h-screen pt-16 px-4 bg-gradient-to-b from-emerald-50 to-teal-50 flex items-center justify-center">
         <div className="max-w-4xl mx-auto py-16">
@@ -39,3 +41,5 @@ export const AboutUs = () => {
       </section>
     );
   };
+
+export default AboutUs;
