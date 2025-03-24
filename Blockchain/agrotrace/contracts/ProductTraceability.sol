@@ -15,7 +15,7 @@ contract ProductTraceability {
         uint256 harvestDate;
         string farmLocation;
         uint256 basePricePerKg;
-        string certificationNumber; // Simple certification ID
+        string certificationNumber;
     }
 
     struct ProcessedBatch {
@@ -25,7 +25,7 @@ contract ProductTraceability {
         string storageConditions;
         uint256 finalPricePerKg;
         string transportDetails;
-        string qrCodeId; // Simple QR code identifier
+        string qrCodeId;
     }
 
     mapping(uint256 => CropBatch) public cropBatches;
@@ -40,7 +40,8 @@ contract ProductTraceability {
 
     modifier onlyFarmer() {
         require(
-            registrationContract.getRole(msg.sender) == "Farmer",
+            keccak256(abi.encodePacked(registrationContract.getRole(msg.sender))) == 
+            keccak256(abi.encodePacked("Farmer")),
             "Only registered farmers"
         );
         _;
@@ -48,7 +49,8 @@ contract ProductTraceability {
 
     modifier onlyTrader() {
         require(
-            registrationContract.getRole(msg.sender) == "AgroTrader",
+            keccak256(abi.encodePacked(registrationContract.getRole(msg.sender))) == 
+            keccak256(abi.encodePacked("AgroTrader")),
             "Only registered traders"
         );
         _;

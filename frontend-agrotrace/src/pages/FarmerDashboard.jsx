@@ -1,6 +1,6 @@
 import React from "react";
 import { useReadContract } from "thirdweb/react";
-import { contract } from "../client";
+import { registrationContract } from "../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +8,7 @@ export default function FarmerDashboard() {
   const account = useActiveAccount();
   const navigate = useNavigate();
   const { data: farmerDetails, isLoading } = useReadContract({
-    contract,
+    contract:registrationContract,
     method:
       "function getFarmerDetails(address _wallet) view returns ((string name, string addressDetails, string email, string phoneNumber, string citizenshipId, string photoLink, string location))",
     params: [account?.address || ""],
@@ -69,6 +69,12 @@ export default function FarmerDashboard() {
               className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Crop Details
+            </button>
+            <button
+              onClick={() => navigate("/farmer-products")}
+                            className="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors mt-2"
+            >
+              View My Crops
             </button>
           </div>
         </div>

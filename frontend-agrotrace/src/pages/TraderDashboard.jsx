@@ -1,6 +1,6 @@
 import React from "react";
 import { useReadContract } from "thirdweb/react";
-import { contract } from "../client";
+import { registrationContract } from "../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +8,7 @@ export default function TraderDashboard() {
   const account = useActiveAccount();
   const navigate = useNavigate();
   const { data: traderDetails, isLoading } = useReadContract({
-    contract,
+    contract:registrationContract,
     method:
       "function getAgroTraderDetails(address _wallet) view returns ((string businessName, string email, string phoneNumber, string panVatNumber, string warehouseLocation))",
     params: [account?.address || ""],
@@ -63,6 +63,12 @@ export default function TraderDashboard() {
               className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Agro Product Details
+            </button>
+            <button
+              onClick={() => navigate("/trader-products")}
+              className="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors mt-2"
+            >
+              View Processed Products
             </button>
           </div>
         </div>

@@ -10,16 +10,19 @@ import AgroTraderAddProduct from "./pages/AgroTraderAddProduct";
 import ScanQRCode from "./pages/ScanQRCode";
 import FarmerDashboard from "./pages/FarmerDashboard";
 import TraderDashboard from "./pages/TraderDashboard";
+import TraderProducts from "./pages/TraderProducts";
+import FarmerProducts from "./pages/FarmerProducts";
 import { useActiveAccount } from "thirdweb/react";
 import { useReadContract } from "thirdweb/react";
-import { contract } from "./client";
+import { registrationContract } from "./client";
 
 export const App = () => {
   const account = useActiveAccount();
   const { data: role, isLoading: isRoleLoading } = useReadContract({
-    contract,
+    contract:registrationContract,
     method: "function getRole(address _wallet) view returns (string)",
     params: [account?.address || ""],
+    enabled: !!account?.address,  // Only run the query when account is available
   });
 
   if (isRoleLoading) {
@@ -34,7 +37,8 @@ export const App = () => {
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/scan-qr" element={<ScanQRCode />} />
-
+        <Route path="/trader-products" element={<TraderProducts />} />
+        <Route path="/farmer-products" element={<FarmerProducts />} />
         {/* Farmer Routes */}
         <Route
           path="/register-farmer"

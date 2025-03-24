@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { prepareContractCall, prepareEvent } from "thirdweb";
 import { useSendTransaction, useContractEvents, useActiveAccount } from "thirdweb/react";
-import { contract } from "../client";
+import { registrationContract } from "../client";
 import { useNavigate } from "react-router-dom";
 
 // Prepare the FarmerRegistered event
@@ -28,7 +28,7 @@ export default function RegisterFarmer() {
 
   // Listen for the FarmerRegistered event
   const { data: events } = useContractEvents({
-    contract,
+    contract:registrationContract,
     events: [preparedEvent],
   });
 
@@ -59,7 +59,7 @@ export default function RegisterFarmer() {
 
     // Prepare the transaction
     const transaction = prepareContractCall({
-      contract,
+      contract:registrationContract,
       method:
         "function registerFarmer(string _name, string _addressDetails, string _email, string _phoneNumber, string _citizenshipId, string _photoLink, string _location)",
       params: [
