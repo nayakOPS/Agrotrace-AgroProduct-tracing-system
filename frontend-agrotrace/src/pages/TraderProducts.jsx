@@ -4,84 +4,344 @@ import { productTraceabilityContract } from "../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 import { prepareEvent } from "thirdweb";
+import { readContract } from "thirdweb";
+import { QRCodeSVG } from 'qrcode.react';
+import { saveAs } from 'file-saver';
+
+const convertBigInt = (value) => {
+  return typeof value === 'bigint' ? Number(value) : value;
+};
 
 export default function TraderProducts() {
   const account = useActiveAccount();
   const navigate = useNavigate();
-  console.log("Current account:", account?.address);
+  const [allBatches, setAllBatches] = React.useState([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [showQRPopup, setShowQRPopup] = React.useState(false);
+  const [currentBatch, setCurrentBatch] = React.useState(null);
+  const [qrCodeId, setQrCodeId] = React.useState('');
+  const [qrValue, setQrValue] = React.useState('');
 
-  // Prepare event listener for BatchProcessed
+  // Get batch counter
+  const { data: batchCount } = useReadContract({
+    contract: productTraceabilityContract,
+    method: "function batchCounter() view returns (uint256)",
+  });
+
+  // Fetch all batches when account or batchCount changes
+  React.useEffect(() => {
+    if (!account?.address || !batchCount) return;
+
+    const fetchAllBatches = async () => {
+      setIsLoading(true);
+      try {
+        const batches = [];
+        
+        // Fetch all batches in parallel
+        const batchPromises = [];
+        for (let i = 1; i <= batchCount; i++) {
+          batchPromises.push(
+            readContract({
+              contract: productTraceabilityContract,
+              method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
+              params: [i],
+            }).then(async (processedData) => {
+              if (!processedData || !processedData[0]) return null;
+
+              // Only process batches belonging to this trader
+              if (processedData[0].toLowerCase() === account.address.toLowerCase()) {
+                const cropData = await readContract({
+                  contract: productTraceabilityContract,
+                  method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+                  params: [i],
+                });
+
+                // Get complete product history for QR code value
+                const productHistory = await readContract({
+                  contract: productTraceabilityContract,
+                  method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+                  params: [i],
+                });
+
+                return {
+                  batchId: i,
+                  processedDetails: {
+                    traderAddress: processedData[0],
+                    processingDate: convertBigInt(processedData[1]),
+                    packagingDate: convertBigInt(processedData[2]),
+                    storageConditions: processedData[3],
+                    finalPricePerKg: convertBigInt(processedData[4]),
+                    transportDetails: processedData[5],
+                    qrCodeId: processedData[6]
+                  },
+                  cropDetails: {
+                    farmerAddress: cropData[0],
+                    productName: cropData[1],
+                    quantity: convertBigInt(cropData[2]),
+                    qualityGrade: cropData[3],
+                    harvestDate: convertBigInt(cropData[4]),
+                    farmLocation: cropData[5],
+                    basePricePerKg: convertBigInt(cropData[6]),
+                    certificationNumber: cropData[7]
+                  },
+                  productHistory: {
+                    farmer: productHistory[0],
+                    trader: productHistory[1],
+                    productName: productHistory[2],
+                    basePrice: convertBigInt(productHistory[3]),
+                    finalPrice: convertBigInt(productHistory[4]),
+                    harvestDate: convertBigInt(productHistory[5]),
+                    packagingDate: convertBigInt(productHistory[6]),
+                    qualityGrade: productHistory[7],
+                    certificationNumber: productHistory[8],
+                    qrCodeId: productHistory[9]
+                  }
+                };
+              }
+              return null;
+            })
+          );
+        }
+
+        const results = await Promise.all(batchPromises);
+        const uniqueBatches = results.filter(batch => batch !== null)
+          .reduce((acc, current) => {
+            const x = acc.find(item => item.batchId === current.batchId);
+            if (!x) {
+              return acc.concat([current]);
+            } else {
+              return acc;
+            }
+          }, []);
+        setAllBatches(uniqueBatches);
+      } catch (error) {
+        console.error("Error fetching batches:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllBatches();
+  }, [account?.address, batchCount]);
+
+  // Listen for new events to update UI in real-time
   const batchProcessedEvent = prepareEvent({
     signature: "event BatchProcessed(uint256 indexed batchId, address indexed trader)",
   });
 
-  // Get all processed batch events
-  const { data: processedEvents, isLoading: eventsLoading } = useContractEvents({
+  const { data: processedEvents } = useContractEvents({
     contract: productTraceabilityContract,
     events: [batchProcessedEvent],
   });
-  console.log("Processed events:", processedEvents);
 
-  // Filter batches by current trader
-  const traderBatches = React.useMemo(() => {
-    if (!processedEvents || !account?.address) return [];
-    return processedEvents.filter(event => 
-      event.args.trader.toLowerCase() === account.address.toLowerCase()
+  // Handle new events - modified to prevent duplicates
+  React.useEffect(() => {
+    if (!processedEvents?.length || !account?.address || isLoading) return;
+
+    const handleNewBatch = async () => {
+      const newBatches = await Promise.all(
+        processedEvents
+          .filter(event => event.args.trader.toLowerCase() === account.address.toLowerCase())
+          .map(async (event) => {
+            const batchId = event.args.batchId;
+            
+            // Skip if we already have this batch
+            if (allBatches.some(b => b.batchId === batchId)) return null;
+
+            const processedData = await readContract({
+              contract: productTraceabilityContract,
+              method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
+              params: [batchId],
+            });
+
+            const cropData = await readContract({
+              contract: productTraceabilityContract,
+              method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+              params: [batchId],
+            });
+
+            const productHistory = await readContract({
+              contract: productTraceabilityContract,
+              method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+              params: [batchId],
+            });
+
+            return {
+              batchId,
+              processedDetails: {
+                traderAddress: processedData[0],
+                processingDate: convertBigInt(processedData[1]),
+                packagingDate: convertBigInt(processedData[2]),
+                storageConditions: processedData[3],
+                finalPricePerKg: convertBigInt(processedData[4]),
+                transportDetails: processedData[5],
+                qrCodeId: processedData[6]
+              },
+              cropDetails: {
+                farmerAddress: cropData[0],
+                productName: cropData[1],
+                quantity: convertBigInt(cropData[2]),
+                qualityGrade: cropData[3],
+                harvestDate: convertBigInt(cropData[4]),
+                farmLocation: cropData[5],
+                basePricePerKg: convertBigInt(cropData[6]),
+                certificationNumber: cropData[7]
+              },
+              productHistory: {
+                farmer: productHistory[0],
+                trader: productHistory[1],
+                productName: productHistory[2],
+                basePrice: convertBigInt(productHistory[3]),
+                finalPrice: convertBigInt(productHistory[4]),
+                harvestDate: convertBigInt(productHistory[5]),
+                packagingDate: convertBigInt(productHistory[6]),
+                qualityGrade: productHistory[7],
+                certificationNumber: productHistory[8],
+                qrCodeId: productHistory[9]
+              }
+            };
+          })
+      );
+
+      const validNewBatches = newBatches.filter(batch => batch !== null);
+      if (validNewBatches.length > 0) {
+        setAllBatches(prev => {
+          // Combine and deduplicate batches
+          const combined = [...prev, ...validNewBatches];
+          return combined.reduce((acc, current) => {
+            const x = acc.find(item => item.batchId === current.batchId);
+            if (!x) {
+              return acc.concat([current]);
+            } else {
+              return acc;
+            }
+          }, []);
+        });
+      }
+    };
+
+    handleNewBatch();
+  }, [processedEvents, account?.address, isLoading, allBatches]);
+
+  // Create a unique list of batches for rendering
+  const uniqueBatchesToRender = React.useMemo(() => {
+    return allBatches.reduce((acc, current) => {
+      const x = acc.find(item => item.batchId === current.batchId);
+      if (!x) {
+        return acc.concat([current]);
+      } else {
+        return acc;
+      }
+    }, []);
+  }, [allBatches]);
+
+  const handleGenerateQR = async (batchId) => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch the complete product history for this batch
+      const productHistory = await readContract({
+        contract: productTraceabilityContract,
+        method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+        params: [batchId],
+      });
+
+      // Find the batch in our state to get other details
+      const batch = allBatches.find(b => b.batchId === batchId);
+      if (!batch) return;
+
+      const newQrCodeId = batch.processedDetails.qrCodeId || `batch-${batchId}`;
+      setQrCodeId(newQrCodeId);
+      
+      // Create the QR code value with product history data
+      const qrData = {
+        batchId: batchId,
+        farmer: productHistory[0],
+        trader: productHistory[1],
+        productName: productHistory[2],
+        basePrice: convertBigInt(productHistory[3]),
+        finalPrice: convertBigInt(productHistory[4]),
+        harvestDate: convertBigInt(productHistory[5]),
+        packagingDate: convertBigInt(productHistory[6]),
+        qualityGrade: productHistory[7],
+        certificationNumber: productHistory[8],
+        qrCodeId: newQrCodeId
+      };
+      
+      setQrValue(JSON.stringify(qrData));
+      setCurrentBatch(batch);
+      setShowQRPopup(true);
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const downloadQRCode = () => {
+    const canvas = document.getElementById("qr-code-canvas");
+    canvas.toBlob((blob) => {
+      saveAs(blob, `qr-code-${currentBatch.batchId}.png`);
+    });
+  };
+
+  const QRPopup = () => {
+    if (!showQRPopup || !currentBatch) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg max-w-md w-full">
+          <h3 className="text-lg font-bold mb-4">Generate QR Code</h3>
+          
+          <div className="mb-4">
+            <label className="block mb-2">QR Code ID</label>
+            <input
+              type="text"
+              value={qrCodeId}
+              onChange={(e) => {
+                setQrCodeId(e.target.value);
+                // Update QR value when ID changes
+                const qrData = JSON.parse(qrValue);
+                qrData.qrCodeId = e.target.value;
+                setQrValue(JSON.stringify(qrData));
+              }}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          
+          <div className="flex justify-center mb-4">
+            <QRCodeSVG
+              id="qr-code-canvas"
+              value={qrValue}
+              size={200}
+              level="H"
+              includeMargin={true}
+            />
+          </div>
+          
+          <div className="mb-4 p-3 bg-gray-50 rounded-md">
+            <p className="text-sm font-medium mb-1">QR Code contains:</p>
+            <pre className="text-xs overflow-auto max-h-40">{qrValue}</pre>
+          </div>
+          
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => setShowQRPopup(false)}
+              className="px-4 py-2 border rounded"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={downloadQRCode}
+              className="px-4 py-2 bg-emerald-600 text-white rounded"
+            >
+              Download QR
+            </button>
+          </div>
+        </div>
+      </div>
     );
-  }, [processedEvents, account?.address]);
-  console.log("Trader batches:", traderBatches);
-
-  // Get details for each processed batch
-  const { data: processedDetails, isLoading: detailsLoading } = useReadContract({
-    contract: productTraceabilityContract,
-    method: "function processedBatches(uint256) view returns (address traderAddress, uint256 processingDate, uint256 packagingDate, string storageConditions, uint256 finalPricePerKg, string transportDetails, string qrCodeId)",
-    params: traderBatches.map(batch => batch.args.batchId),
-  });
-  console.log("Processed details:", processedDetails);
-
-  // Get original crop details for each batch
-  const { data: cropDetails, isLoading: cropLoading } = useReadContract({
-    contract: productTraceabilityContract,
-    method: "function cropBatches(uint256) view returns (address farmerAddress, string productName, uint256 quantity, string qualityGrade, uint256 harvestDate, string farmLocation, uint256 basePricePerKg, string certificationNumber)",
-    params: traderBatches.map(batch => batch.args.batchId),
-  });
-  console.log("Crop details:", cropDetails);
-
-  // Combine processed and crop details
-  const combinedBatchDetails = React.useMemo(() => {
-    if (!processedDetails || !cropDetails) return [];
-
-    // Convert array-like details to proper objects
-    const processedObj = {
-      traderAddress: processedDetails[0],
-      processingDate: processedDetails[1],
-      packagingDate: processedDetails[2],
-      storageConditions: processedDetails[3],
-      finalPricePerKg: processedDetails[4],
-      transportDetails: processedDetails[5],
-      qrCodeId: processedDetails[6]
-    };
-
-    const cropObj = {
-      farmerAddress: cropDetails[0],
-      productName: cropDetails[1],
-      quantity: cropDetails[2],
-      qualityGrade: cropDetails[3],
-      harvestDate: cropDetails[4],
-      farmLocation: cropDetails[5],
-      basePricePerKg: cropDetails[6],
-      certificationNumber: cropDetails[7]
-    };
-
-    return traderBatches.map((batch, index) => ({
-      batchId: batch.args.batchId,
-      processed: processedObj,
-      crop: cropObj
-    }));
-  }, [traderBatches, processedDetails, cropDetails]);
-
-  // Combined loading state
-  const isLoading = eventsLoading || detailsLoading || cropLoading;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -96,11 +356,12 @@ export default function TraderProducts() {
               Back to Dashboard
             </button>
           </div>
+          
           {isLoading ? (
             <div className="text-center py-8">
               <p className="text-emerald-700">Loading product details...</p>
             </div>
-          ) : combinedBatchDetails.length === 0 ? (
+          ) : uniqueBatchesToRender.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">You haven't processed any products yet.</p>
             </div>
@@ -118,43 +379,55 @@ export default function TraderProducts() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {combinedBatchDetails.map(({ batchId, processed, crop }) => {
-                    console.log(`Batch ${batchId}:`, { processed, crop });
-                    return (
-                      <tr key={batchId.toString()} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {batchId.toString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {crop.productName || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {crop.farmerAddress 
-                            ? `${crop.farmerAddress.slice(0, 6)}...${crop.farmerAddress.slice(-4)}`
-                            : "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {processed.processingDate 
-                            ? new Date(Number(processed.processingDate) * 1000).toLocaleDateString() 
-                            : "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {processed.finalPricePerKg 
-                            ? `Rs. ${Number(processed.finalPricePerKg) / 100}` 
-                            : "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {processed.qrCodeId || "N/A"}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {uniqueBatchesToRender.map(({ batchId, processedDetails, cropDetails }) => (
+                    <tr key={`${batchId}-${cropDetails.productName}`} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {batchId.toString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {cropDetails.productName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {cropDetails.farmerAddress 
+                          ? `${cropDetails.farmerAddress.slice(0, 6)}...${cropDetails.farmerAddress.slice(-4)}`
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.processingDate 
+                          ? new Date(processedDetails.processingDate * 1000).toLocaleDateString()
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.finalPricePerKg 
+                          ? `Rs. ${processedDetails.finalPricePerKg / 100}`
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.qrCodeId ? (
+                          <button 
+                            onClick={() => handleGenerateQR(batchId)}
+                            className="text-emerald-600 hover:underline"
+                          >
+                            {processedDetails.qrCodeId}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGenerateQR(batchId)}
+                            className="text-emerald-600 hover:underline"
+                          >
+                            Generate QR
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+      <QRPopup />
     </div>
   );
 }
