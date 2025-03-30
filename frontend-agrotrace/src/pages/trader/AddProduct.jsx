@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { prepareContractCall } from "thirdweb";
 import { useSendTransaction, useReadContract } from "thirdweb/react";
-import { productTraceabilityContract } from "../client";
+import { productTraceabilityContract } from "../../client";
 import { useNavigate } from "react-router-dom";
 import { useActiveAccount } from "thirdweb/react";
 
-export default function AgroTraderAddProduct() {
+export default function AddProduct() {
   const navigate = useNavigate();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const account = useActiveAccount();

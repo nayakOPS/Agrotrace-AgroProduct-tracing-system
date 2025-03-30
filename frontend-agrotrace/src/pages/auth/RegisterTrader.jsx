@@ -1,129 +1,101 @@
 import React, { useState, useEffect } from "react";
 import { prepareContractCall, prepareEvent } from "thirdweb";
-import { useSendTransaction, useContractEvents, useActiveAccount } from "thirdweb/react";
-import { registrationContract } from "../client";
+import { useSendTransaction, useContractEvents } from "thirdweb/react";
+import { registrationContract } from "../../client";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
-// Prepare the FarmerRegistered event
+// Prepare the AgroTraderRegistered event
 const preparedEvent = prepareEvent({
-  signature: "event FarmerRegistered(address indexed farmer, string name)",
+  signature: "event AgroTraderRegistered(address indexed agroTrader, string businessName)",
 });
 
-export default function RegisterFarmer() {
+export default function RegisterTrader() {
   const navigate = useNavigate();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
+  const { isTrader, account } = useAuth();
   const [formData, setFormData] = useState({
-    name: "",
-    addressDetails: "",
+    businessName: "",
     email: "",
     phoneNumber: "",
-    citizenshipId: "",
-    photoLink: "",
-    location: "",
+    panVatNumber: "",
+    warehouseLocation: "",
   });
 
-  // Get the currently connected wallet address
-  const account = useActiveAccount();
-  const connectedAddress = account?.address;
-
-  // Listen for the FarmerRegistered event
+  // Listen for the AgroTraderRegistered event
   const { data: events } = useContractEvents({
-    contract:registrationContract,
+    contract: registrationContract,
     events: [preparedEvent],
   });
 
-  // Check if the connected wallet address is already registered as a farmer
+  // Redirect if already registered as trader
   useEffect(() => {
-    if (events && events.length > 0 && connectedAddress) {
-      const latestEvent = events[events.length - 1];
-      console.log("latestEvent details :", latestEvent.args);
-      console.log("connectedAddress details :", connectedAddress);
+    if (isTrader) {
+      navigate("/trader/dashboard");
+    }
+  }, [isTrader, navigate]);
 
-      // Check if the farmer address in the event matches the connected wallet address
-      if (latestEvent.args.farmer === connectedAddress) {
-        console.log("User is already registered as a farmer.");
-        navigate("/farmer-dashboard"); // Redirect to the Farmer Dashboard
+  // Check registration success
+  useEffect(() => {
+    if (events && events.length > 0 && account?.address) {
+      const latestEvent = events[events.length - 1];
+      if (latestEvent.args.agroTrader === account.address) {
+        alert("Agro Trader successfully registered!");
+        navigate("/trader/dashboard");
       }
     }
-  }, [events, connectedAddress, navigate]);
+  }, [events, account, navigate]);
 
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Prepare the transaction
     const transaction = prepareContractCall({
-      contract:registrationContract,
-      method:
-        "function registerFarmer(string _name, string _addressDetails, string _email, string _phoneNumber, string _citizenshipId, string _photoLink, string _location)",
+      contract: registrationContract,
+      method: "function registerAgroTrader(string _businessName, string _email, string _phoneNumber, string _panVatNumber, string _warehouseLocation)",
       params: [
-        formData.name,
-        formData.addressDetails,
+        formData.businessName,
         formData.email,
         formData.phoneNumber,
-        formData.citizenshipId,
-        formData.photoLink,
-        formData.location,
+        formData.panVatNumber,
+        formData.warehouseLocation,
       ],
     });
 
-    // Send the transaction
     sendTransaction(transaction, {
       onSuccess: () => {
-        alert("Farmer registration submitted! Waiting for confirmation...");
+        alert("Agro Trader registration submitted! Waiting for confirmation...");
       },
       onError: (error) => {
-        console.error("Error registering farmer:", error);
-        alert("Failed to register farmer. Please try again.");
+        console.error("Error registering agro trader:", error);
+        alert("Failed to register agro trader. Please try again.");
       },
     });
   };
 
-  // Check if the farmer was successfully registered after form submission
-  useEffect(() => {
-    if (events && events.length > 0 && connectedAddress) {
-      const latestEvent = events[events.length - 1];
-      if (latestEvent.args.farmer === connectedAddress) {
-        alert("Farmer successfully registered!");
-        navigate("/farmer-dashboard"); // Redirect to the Farmer Dashboard
-      }
-    }
-  }, [events, connectedAddress, navigate]);
+  if (isTrader === null) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-3xl font-bold text-center text-emerald-700 mb-6">
-          Register as a Farmer
+          Register as an Agro Trader
         </h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Full Name
+              Business Name
             </label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Address
-            </label>
-            <input
-              type="text"
-              name="addressDetails"
-              value={formData.addressDetails}
+              name="businessName"
+              value={formData.businessName}
               onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required
@@ -157,12 +129,12 @@ export default function RegisterFarmer() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Citizenship ID
+              PAN/VAT Number
             </label>
             <input
               type="text"
-              name="citizenshipId"
-              value={formData.citizenshipId}
+              name="panVatNumber"
+              value={formData.panVatNumber}
               onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required
@@ -170,25 +142,12 @@ export default function RegisterFarmer() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Photo Link
-            </label>
-            <input
-              type="url"
-              name="photoLink"
-              value={formData.photoLink}
-              onChange={handleInputChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Location
+              Warehouse Location
             </label>
             <input
               type="text"
-              name="location"
-              value={formData.location}
+              name="warehouseLocation"
+              value={formData.warehouseLocation}
               onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required

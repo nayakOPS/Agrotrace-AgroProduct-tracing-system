@@ -1,6 +1,6 @@
 import React from "react";
 import { useReadContract, useContractEvents } from "thirdweb/react";
-import { productTraceabilityContract } from "../client";
+import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 import { prepareEvent } from "thirdweb";
@@ -12,7 +12,20 @@ const convertBigInt = (value) => {
   return typeof value === 'bigint' ? Number(value) : value;
 };
 
-export default function TraderProducts() {
+// Function to format date from UNIX timestamp to YYYY/MM/DD
+const formatDate = (timestamp) => {
+  if (!timestamp) return "N/A";
+  const date = new Date(timestamp * 1000);
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+};
+
+// Function to format addresses to be more readable
+const formatAddress = (address) => {
+  if (!address) return "N/A";
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+export default function Products() {
   const account = useActiveAccount();
   const navigate = useNavigate();
   const [allBatches, setAllBatches] = React.useState([]);
@@ -253,22 +266,25 @@ export default function TraderProducts() {
       const newQrCodeId = batch.processedDetails.qrCodeId || `batch-${batchId}`;
       setQrCodeId(newQrCodeId);
       
-      // Create the QR code value with product history data
-      const qrData = {
-        batchId: batchId,
-        farmer: productHistory[0],
-        trader: productHistory[1],
-        productName: productHistory[2],
-        basePrice: convertBigInt(productHistory[3]),
-        finalPrice: convertBigInt(productHistory[4]),
-        harvestDate: convertBigInt(productHistory[5]),
-        packagingDate: convertBigInt(productHistory[6]),
-        qualityGrade: productHistory[7],
-        certificationNumber: productHistory[8],
-        qrCodeId: newQrCodeId
-      };
+      // Create formatted QR code data in a human-readable format
+      const harvestDate = formatDate(convertBigInt(productHistory[5]));
+      const packagingDate = formatDate(convertBigInt(productHistory[6]));
       
-      setQrValue(JSON.stringify(qrData));
+      const readableQrData = `Product: ${productHistory[2]}
+Farmer: ${formatAddress(productHistory[0])}
+Trader: ${formatAddress(productHistory[1])}
+Base Price: Rs. ${convertBigInt(productHistory[3]) / 100}
+Final Price: Rs. ${convertBigInt(productHistory[4]) / 100}
+Harvest Date: ${harvestDate}
+Packaging Date: ${packagingDate}
+Quality Grade: ${productHistory[7]}
+Certification: ${productHistory[8]}
+QR Code ID: ${newQrCodeId}
+Batch ID: ${batchId}
+
+For more details, scan this QR code from our site: http://localhost:5174/scan-qr`;
+      
+      setQrValue(readableQrData);
       setCurrentBatch(batch);
       setShowQRPopup(true);
     } catch (error) {
@@ -279,10 +295,33 @@ export default function TraderProducts() {
   };
 
   const downloadQRCode = () => {
-    const canvas = document.getElementById("qr-code-canvas");
-    canvas.toBlob((blob) => {
-      saveAs(blob, `qr-code-${currentBatch.batchId}.png`);
-    });
+    // Create a canvas element from the SVG
+    const svg = document.getElementById("qr-code-svg");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    
+    // Create a Blob from the SVG data
+    const svgBlob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+    const URL = window.URL || window.webkitURL || window;
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = function() {
+      // Set canvas dimensions to match SVG
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw the SVG on canvas
+      ctx.drawImage(img, 0, 0);
+      
+      // Convert canvas to PNG and download
+      canvas.toBlob(function(blob) {
+        saveAs(blob, `qr-code-${qrCodeId || currentBatch.batchId}.png`);
+      });
+    };
+    
+    img.src = url;
   };
 
   const QRPopup = () => {
@@ -299,11 +338,11 @@ export default function TraderProducts() {
               type="text"
               value={qrCodeId}
               onChange={(e) => {
-                setQrCodeId(e.target.value);
-                // Update QR value when ID changes
-                const qrData = JSON.parse(qrValue);
-                qrData.qrCodeId = e.target.value;
-                setQrValue(JSON.stringify(qrData));
+                const newId = e.target.value;
+                setQrCodeId(newId);
+                
+                // Update QR value when ID changes, keeping the readable format
+                setQrValue(qrValue.replace(/QR Code ID:.*$/m, `QR Code ID: ${newId}`));
               }}
               className="w-full p-2 border rounded"
             />
@@ -311,7 +350,7 @@ export default function TraderProducts() {
           
           <div className="flex justify-center mb-4">
             <QRCodeSVG
-              id="qr-code-canvas"
+              id="qr-code-svg"
               value={qrValue}
               size={200}
               level="H"
@@ -321,7 +360,7 @@ export default function TraderProducts() {
           
           <div className="mb-4 p-3 bg-gray-50 rounded-md">
             <p className="text-sm font-medium mb-1">QR Code contains:</p>
-            <pre className="text-xs overflow-auto max-h-40">{qrValue}</pre>
+            <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">{qrValue}</pre>
           </div>
           
           <div className="flex justify-end space-x-2">

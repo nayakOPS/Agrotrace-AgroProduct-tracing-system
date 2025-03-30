@@ -1,10 +1,10 @@
 import React from "react";
 import { useReadContract } from "thirdweb/react";
-import { registrationContract } from "../client";
+import { registrationContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 
-export default function TraderDashboard() {
+export default function Dashboard() {
   const account = useActiveAccount();
   const navigate = useNavigate();
   const { data: traderDetails, isLoading } = useReadContract({

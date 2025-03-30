@@ -15,6 +15,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "ethers": "^5.7.2",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.6.2",
     "hardhat": "^2.22.18",
     "lucide-react": "^0.474.0",
     "qrcode.react": "^4.2.0",

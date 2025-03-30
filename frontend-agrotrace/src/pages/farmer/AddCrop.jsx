@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { prepareContractCall } from "thirdweb";
 import { useSendTransaction } from "thirdweb/react";
-import { productTraceabilityContract } from "../client";
+import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 
-export default function FarmerAddCrop() {
+export default function AddCrop() {
   const navigate = useNavigate();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const account = useActiveAccount();

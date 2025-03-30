@@ -1,6 +1,6 @@
 import React from "react";
 import { useReadContract, useContractEvents } from "thirdweb/react";
-import { productTraceabilityContract } from "../client";
+import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 import { prepareEvent } from "thirdweb";
@@ -11,7 +11,7 @@ const convertBigInt = (value) => {
   return typeof value === 'bigint' ? Number(value) : value;
 };
 
-export default function FarmerProducts() {
+export default function Products() {
   const account = useActiveAccount();
   const navigate = useNavigate();
   const [allBatches, setAllBatches] = React.useState([]);
