@@ -59,13 +59,13 @@ export default function Dashboard() {
           </div>
           <div>
             <button
-              onClick={() => navigate("/add-agro-product")}
+              onClick={() => navigate("/trader/add-product")}
               className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Agro Product Details
             </button>
             <button
-              onClick={() => navigate("/trader-products")}
+              onClick={() => navigate("/trader/products")}
               className="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors mt-2"
             >
               View Processed Products

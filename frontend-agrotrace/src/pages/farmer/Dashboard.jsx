@@ -65,13 +65,13 @@ export default function Dashboard() {
           </div>
           <div>
             <button
-              onClick={() => navigate("/add-crop")}
+              onClick={() => navigate("/farmer/add-crop")}
               className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Crop Details
             </button>
             <button
-              onClick={() => navigate("/farmer-products")}
+              onClick={() => navigate("/farmer/products")}
                             className="w-full bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors mt-2"
             >
               View My Crops

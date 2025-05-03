@@ -6,6 +6,7 @@ const Home = lazy(() => import('./pages/common/Home.jsx'));
 const AboutUs = lazy(() => import('./pages/common/AboutUs.jsx'));
 const ContactUs = lazy(() => import('./pages/common/ContactUs.jsx'));
 const ScanQRCode = lazy(() => import('./pages/common/ScanQRCode.jsx'));
+const Chatbot = lazy(() => import('./pages/chatbot/chatResponse.jsx'));
 // const CommonProfile = lazy(() => import('./pages/common/Profile.jsx'));
 
 // Auth Pages
@@ -30,6 +31,7 @@ export const ROUTES = {
     { path: '/about', element: <AboutUs />, isProtected: false },
     { path: '/contact', element: <ContactUs />, isProtected: false },
     { path: '/scan-qr', element: <ScanQRCode />, isProtected: false },
+    { path: '/chatbot', element: <Chatbot />},
     // { path: '/profile', element: <CommonProfile />, isProtected: false },
   ],
   FARMER: [

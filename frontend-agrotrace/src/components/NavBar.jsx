@@ -18,14 +18,16 @@ const NavBar = () => {
     { path: '/farmer/dashboard', label: 'Dashboard' },
     { path: '/farmer/add-crop', label: 'Add Crop' },
     { path: '/farmer/products', label: 'My Products' },
-    { path: '/farmer/profile', label: 'Profile' }
+    { path: '/farmer/profile', label: 'Profile' },
+    { path: '/chatbot', label:'Assistant'}
   ];
 
   const traderNavItems = [
     { path: '/trader/dashboard', label: 'Dashboard' },
     { path: '/trader/add-product', label: 'Add Product' },
     { path: '/trader/products', label: 'My Products' },
-    { path: '/trader/profile', label: 'Profile' }
+    { path: '/trader/profile', label: 'Profile' },
+    { path: '/chatbot', label:'Assistant'}
   ];
 
   return (
@@ -59,6 +61,12 @@ const NavBar = () => {
                 >
                   Register AgroTrader
                 </Link>
+                <Link 
+                  to="/chatbot" 
+                  className={`${isHomePage ? 'text-white hover:bg-white/10' : 'text-white hover:bg-emerald-700'} px-3 py-2 rounded-md text-sm font-medium transition-colors`}
+                >
+                  Assistant
+                </Link>
               </>
             )}
 
@@ -71,6 +79,7 @@ const NavBar = () => {
               >
                 {item.label}
               </Link>
+              
             ))}
 
             {/* Trader Navigation */}
