@@ -4,6 +4,7 @@ import { useSendTransaction } from "thirdweb/react";
 import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
 
 export default function AddCrop() {
   const navigate = useNavigate();
@@ -19,6 +20,14 @@ export default function AddCrop() {
     basePricePerKg: "",
     certificationNumber: ""
   });
+
+  const idCounter = useRef(0);
+  
+  const getSequentialId = () => {
+    idCounter.current += 1;
+    const newid = `id-${idCounter.current}`
+    return newid;
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -170,7 +179,7 @@ export default function AddCrop() {
             <input
               type="text"
               name="certificationNumber"
-              value={formData.certificationNumber}
+              value={getSequentialId()}
               onChange={handleInputChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required

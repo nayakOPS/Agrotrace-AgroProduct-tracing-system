@@ -6,12 +6,30 @@ const Chatbot = () => {
   const [input, setInput] = useState('');
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
+  const staticsystemdesc = {
+    role : 'assistant',
+    content : `
+  You are an assistant called agrobot in the agrochain app.
+  This app uses blockchain to create a transparent, traceable supply chain for agro products, involving Farmers, Agro Traders, and Consumers.
+  The frontend communicates directly with the Ethereum blockchain to interact with farmer and agro trader data.
+
+  Users will be able to:
+  Register as a farmer or agro trader
+  View and register agro product data
+  Generate and scan QR codes
+  View product details from the blockchain.
+
+  Your job is to answer user questions based on the apps features.
+  Do not guess if the feature doesnot exist.
+  Speak clearly and help beginners.
+  `
+  };
+
   const userMsg = { role: 'user', content: input};
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const newMessages = [{
-      role :'system',
-      content :'You are a helpful assistant that tends to users needs.You also help them to navigate through the web app.The web app is a blockchain based supply chain management system.Assume user has no tech experience.Use a friendly tone.'},
+    const newMessages = [
+      staticsystemdesc,
       ...messages,
       userMsg
     ];
@@ -52,7 +70,7 @@ const Chatbot = () => {
         
         {/* Chat header */}
         <div className="bg-teal-600 text-white text-lg font-semibold px-4 py-3">
-          🤖 Chat with Assistant
+          🤖 Chat with AgroBot
         </div>
         
         {/* Messages */}
@@ -70,7 +88,7 @@ const Chatbot = () => {
                 }`}
               >
                 <span className="block text-sm font-medium mb-1">
-                  {msg.role === 'user' ? 'You' : 'Assistant'}
+                  {msg.role === 'user' ? 'You' : 'AgroBot'}
                 </span>
                 <span className="text-sm">{msg.content}</span>
               </div>
