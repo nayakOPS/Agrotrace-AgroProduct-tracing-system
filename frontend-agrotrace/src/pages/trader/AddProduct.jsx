@@ -1,14 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { prepareContractCall } from "thirdweb";
 import { useSendTransaction, useReadContract } from "thirdweb/react";
 import { productTraceabilityContract } from "../../client";
 import { useNavigate } from "react-router-dom";
 import { useActiveAccount } from "thirdweb/react";
+import { readContract } from "thirdweb";
+
+// Helper function to convert BigInt to Number where needed
+const convertBigInt = (value) => {
+  return typeof value === 'bigint' ? Number(value) : value;
+};
+
+// Function to generate a random QR code identifier
+const generateQRCode = () => {
+  // Generate a random number between 1000 and 9999
+  const randomNum = Math.floor(Math.random() * 9000) + 1000;
+  return `QR-${randomNum}`;
+};
+
+// Helper function to format date for input[type="date"]
+const formatDateForInput = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp * 1000);
+  return date.toISOString().split('T')[0];
+};
 
 export default function AddProduct() {
   const navigate = useNavigate();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const account = useActiveAccount();
+  const [pendingBatches, setPendingBatches] = useState([]);
+  const [isLoadingBatches, setIsLoadingBatches] = useState(true);
+  const [selectedBatch, setSelectedBatch] = useState(null);
 
   // State for form data
   const [formData, setFormData] = useState({
@@ -18,19 +41,102 @@ export default function AddProduct() {
     storageConditions: "Refrigerated",
     finalPricePerKg: "",
     transportDetails: "Truck",
-    qrCodeId: ""
+    qrCodeId: generateQRCode() // Initialize with a random QR code
   });
 
-  // Fetch available batches (not yet processed)
+  // Get today's date in YYYY-MM-DD format for max date validation
+  const today = new Date().toISOString().split('T')[0];
+
+  // Fetch batch counter
   const { data: batchCount } = useReadContract({
     contract: productTraceabilityContract,
     method: "function batchCounter() view returns (uint256)",
   });
 
+  // Fetch pending batches
+  useEffect(() => {
+    if (!batchCount) return;
+
+    const fetchPendingBatches = async () => {
+      setIsLoadingBatches(true);
+      try {
+        const batches = [];
+        
+        // Fetch all batches in parallel
+        const batchPromises = [];
+        for (let i = 1; i <= batchCount; i++) {
+          batchPromises.push(
+            readContract({
+              contract: productTraceabilityContract,
+              method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+              params: [i],
+            }).then(async (cropData) => {
+              if (!cropData || !cropData[0]) return null;
+
+              const processedData = await readContract({
+                contract: productTraceabilityContract,
+                method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
+                params: [i],
+              });
+
+              // Only include batches that haven't been processed yet
+              if (!processedData || processedData[0] === "0x0000000000000000000000000000000000000000") {
+                return {
+                  batchId: i,
+                  productName: cropData[1],
+                  quantity: convertBigInt(cropData[2]),
+                  qualityGrade: cropData[3],
+                  harvestDate: convertBigInt(cropData[4]),
+                };
+              }
+              return null;
+            })
+          );
+        }
+
+        const results = await Promise.all(batchPromises);
+        const validBatches = results.filter(batch => batch !== null);
+        setPendingBatches(validBatches);
+      } catch (error) {
+        console.error("Error fetching pending batches:", error);
+      } finally {
+        setIsLoadingBatches(false);
+      }
+    };
+
+    fetchPendingBatches();
+  }, [batchCount]);
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    if (name === 'batchId') {
+      const batch = pendingBatches.find(b => b.batchId.toString() === value);
+      setSelectedBatch(batch);
+    }
+    
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Function to regenerate QR code
+  const handleRegenerateQR = () => {
+    setFormData(prev => ({
+      ...prev,
+      qrCodeId: generateQRCode()
+    }));
+  };
+
+  // Get minimum date for processing (harvest date)
+  const getMinProcessingDate = () => {
+    if (!selectedBatch) return '';
+    return formatDateForInput(selectedBatch.harvestDate);
+  };
+
+  // Get minimum date for packaging (processing date)
+  const getMinPackagingDate = () => {
+    if (!formData.processingDate) return '';
+    return formData.processingDate;
   };
 
   // Handle form submission
@@ -38,9 +144,30 @@ export default function AddProduct() {
     e.preventDefault();
 
     try {
+      // Validate dates
+      const processingDate = new Date(formData.processingDate);
+      const packagingDate = new Date(formData.packagingDate);
+      const harvestDate = new Date(selectedBatch.harvestDate * 1000);
+      const today = new Date();
+
+      if (processingDate < harvestDate) {
+        alert("Processing date cannot be before harvest date");
+        return;
+      }
+
+      if (packagingDate < processingDate) {
+        alert("Packaging date cannot be before processing date");
+        return;
+      }
+
+      if (processingDate > today || packagingDate > today) {
+        alert("Dates cannot be in the future");
+        return;
+      }
+
       // Convert dates to timestamps
-      const processingTimestamp = Math.floor(new Date(formData.processingDate).getTime() / 1000);
-      const packagingTimestamp = Math.floor(new Date(formData.packagingDate).getTime() / 1000);
+      const processingTimestamp = Math.floor(processingDate.getTime() / 1000);
+      const packagingTimestamp = Math.floor(packagingDate.getTime() / 1000);
 
       const transaction = prepareContractCall({
         contract: productTraceabilityContract,
@@ -80,23 +207,34 @@ export default function AddProduct() {
         </h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Batch ID */}
+          {/* Batch Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Batch ID (from farmer)
+              Select Batch to Process
             </label>
-            <input
-              type="number"
-              name="batchId"
-              min="1"
-              value={formData.batchId}
-              onChange={handleInputChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-            {batchCount && (
+            {isLoadingBatches ? (
+              <p className="mt-1 text-sm text-gray-500">Loading available batches...</p>
+            ) : pendingBatches.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-500">No pending batches available for processing</p>
+            ) : (
+              <select
+                name="batchId"
+                value={formData.batchId}
+                onChange={handleInputChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                required
+              >
+                <option value="">Select a batch</option>
+                {pendingBatches.map((batch) => (
+                  <option key={batch.batchId} value={batch.batchId}>
+                    Batch #{batch.batchId} - {batch.productName} ({batch.quantity}kg, {batch.qualityGrade})
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedBatch && (
               <p className="mt-1 text-sm text-gray-500">
-                Available batches: 1 to {batchCount.toString()}
+                Harvest Date: {new Date(selectedBatch.harvestDate * 1000).toLocaleDateString()}
               </p>
             )}
           </div>
@@ -111,9 +249,14 @@ export default function AddProduct() {
               name="processingDate"
               value={formData.processingDate}
               onChange={handleInputChange}
+              min={getMinProcessingDate()}
+              max={today}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required
             />
+            <p className="mt-1 text-sm text-gray-500">
+              Must be after harvest date ({selectedBatch ? new Date(selectedBatch.harvestDate * 1000).toLocaleDateString() : 'N/A'}) and not in the future
+            </p>
           </div>
 
           {/* Packaging Date */}
@@ -126,9 +269,14 @@ export default function AddProduct() {
               name="packagingDate"
               value={formData.packagingDate}
               onChange={handleInputChange}
+              min={getMinPackagingDate()}
+              max={today}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               required
             />
+            <p className="mt-1 text-sm text-gray-500">
+              Must be after processing date and not in the future
+            </p>
           </div>
 
           {/* Storage Conditions */}
@@ -191,15 +339,26 @@ export default function AddProduct() {
             <label className="block text-sm font-medium text-gray-700">
               QR Code Identifier
             </label>
-            <input
-              type="text"
-              name="qrCodeId"
-              value={formData.qrCodeId}
-              onChange={handleInputChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-              placeholder="QR-001"
-            />
+            <div className="mt-1 flex rounded-md shadow-sm">
+              <input
+                type="text"
+                name="qrCodeId"
+                value={formData.qrCodeId}
+                readOnly
+                className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
+                required
+              />
+              <button
+                type="button"
+                onClick={handleRegenerateQR}
+                className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                Regenerate
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              This QR code will be permanently associated with this batch on the blockchain
+            </p>
           </div>
 
           <div>

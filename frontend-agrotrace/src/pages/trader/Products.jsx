@@ -126,6 +126,7 @@ export default function Products() {
               return acc;
             }
           }, []);
+          console.log(uniqueBatches);
         setAllBatches(uniqueBatches);
       } catch (error) {
         console.error("Error fetching batches:", error);
@@ -270,21 +271,22 @@ export default function Products() {
       const harvestDate = formatDate(convertBigInt(productHistory[5]));
       const packagingDate = formatDate(convertBigInt(productHistory[6]));
       
-      const readableQrData = `Product: ${productHistory[2]}
-Farmer: ${formatAddress(productHistory[0])}
-Trader: ${formatAddress(productHistory[1])}
-Base Price: Rs. ${convertBigInt(productHistory[3]) / 100}
-Final Price: Rs. ${convertBigInt(productHistory[4]) / 100}
-Harvest Date: ${harvestDate}
-Packaging Date: ${packagingDate}
-Quality Grade: ${productHistory[7]}
-Certification: ${productHistory[8]}
-QR Code ID: ${newQrCodeId}
-Batch ID: ${batchId}
-
-For more details, scan this QR code from our site: http://localhost:5174/scan-qr`;
+      const qrData = {
+        product: productHistory[2],
+        farmer: formatAddress(productHistory[0]),
+        trader: formatAddress(productHistory[1]),
+        basePrice: convertBigInt(productHistory[3]) / 100,
+        finalPrice: convertBigInt(productHistory[4]) / 100,
+        harvestDate: harvestDate,
+        packagingDate: packagingDate,
+        qualityGrade: productHistory[7],
+        certification: productHistory[8],
+        qrCodeId: newQrCodeId,
+        batchId: batchId,
+        scanUrl: "http://localhost:5174/scan-qr"
+      };
       
-      setQrValue(readableQrData);
+      setQrValue(JSON.stringify(qrData));
       setCurrentBatch(batch);
       setShowQRPopup(true);
     } catch (error) {
@@ -360,7 +362,18 @@ For more details, scan this QR code from our site: http://localhost:5174/scan-qr
           
           <div className="mb-4 p-3 bg-gray-50 rounded-md">
             <p className="text-sm font-medium mb-1">QR Code contains:</p>
-            <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">{qrValue}</pre>
+            <pre className="text-xs overflow-auto max-h-40 whitespace-pre-wrap">
+              {(() => {
+                try {
+                  const data = JSON.parse(qrValue);
+                  return Object.entries(data)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n');
+                } catch (e) {
+                  return qrValue;
+                }
+              })()}
+            </pre>
           </div>
           
           <div className="flex justify-end space-x-2">
