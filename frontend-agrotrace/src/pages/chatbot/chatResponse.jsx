@@ -1,47 +1,47 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { findRelevantDocs, generateEnhancedPrompt } from '../../services/RagService';
 
 const Chatbot = () => {
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Hi! How can I help you today?' }]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
-  const staticsystemdesc = {
-    role : 'assistant',
+  const systemPrompt = {
+    role : 'system',
     content : `
-  You are an assistant called agrobot in the agrochain app.
-  This app uses blockchain to create a transparent, traceable supply chain for agro products, involving Farmers, Agro Traders, and Consumers.
-  The frontend communicates directly with the Ethereum blockchain to interact with farmer and agro trader data.
-
-  Users will be able to:
-  Register as a farmer or agro trader
-  View and register agro product data
-  Generate and scan QR codes
-  View product details from the blockchain.
-
-  Your job is to answer user questions based on the apps features.
-  Do not guess if the feature doesnot exist.
-  Speak clearly and help beginners.
+    You are AgroBot, an expert assistant for the AgroChain application.
+    AgroChain is a blockchain-based platform for agricultural supply chain management.
+    Provide clear, helpful responses based on the context provided.
+    If information is not available in the context, say so and provide general guidance.
   `
   };
 
-  const userMsg = { role: 'user', content: input};
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const newMessages = [
-      staticsystemdesc,
-      ...messages,
-      userMsg
-    ];
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-
+    setIsLoading(true);
+    
     try {
+
+      //add user message to chat
+      const userMessage = {role : 'user', content: input}
+      setMessages(prev => [...prev,userMessage])
+      setInput('')
+
+      const relevantDocs = findRelevantDocs(input);
+
+      const enhancedPrompt = generateEnhancedPrompt(input,relevantDocs);
+      
       const response = await axios.post(
         import.meta.env.VITE_GROQ_API_LINK,
         {
           model: 'llama3-70b-8192', 
-          messages: newMessages,
+          messages:[
+            systemPrompt,
+            ...messages.slice(-4),
+            { role : 'user', content: enhancedPrompt}
+          ],
           temperature: 0.7,
         },
         {
@@ -57,11 +57,13 @@ const Chatbot = () => {
     } catch (err) {
       console.error(err);
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, something went wrong.' }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') sendMessage();
+    if (e.key === 'Enter' && !isLoading) sendMessage();
   };
 
   return (
@@ -115,7 +117,6 @@ const Chatbot = () => {
       </div>
     </div>
   );
-  
-};
+}
 
 export default Chatbot;
