@@ -1,121 +1,80 @@
-import React, { useState, useEffect } from "react";
-import { prepareContractCall } from "thirdweb";
-import { useSendTransaction, useReadContract } from "thirdweb/react";
-import { productTraceabilityContract } from "../../client";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useReadContract, useSendTransaction } from "thirdweb/react";
 import { useActiveAccount } from "thirdweb/react";
 import { readContract } from "thirdweb";
+import { toast } from 'react-hot-toast';
+import { useNavigate, useParams } from 'react-router-dom';
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
+import { productTraceabilityContract } from '../../client';
 
-// Helper function to convert BigInt to Number where needed
-const convertBigInt = (value) => {
-  return typeof value === 'bigint' ? Number(value) : value;
-};
-
-// Function to generate a random QR code identifier
-const generateQRCode = () => {
-  // Generate a random number between 1000 and 9999
-  const randomNum = Math.floor(Math.random() * 9000) + 1000;
-  return `QR-${randomNum}`;
-};
-
-// Helper function to format date for input[type="date"]
-const formatDateForInput = (timestamp) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp * 1000);
-  return date.toISOString().split('T')[0];
-};
-
-export default function AddProduct() {
+export default function ProcessBatch() {
+  const { batchId } = useParams();
   const navigate = useNavigate();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const account = useActiveAccount();
-  const [pendingBatches, setPendingBatches] = useState([]);
-  const [isLoadingBatches, setIsLoadingBatches] = useState(true);
-  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [batchDetails, setBatchDetails] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // State for form data
   const [formData, setFormData] = useState({
-    batchId: "",
     processingDate: "",
     packagingDate: "",
     storageConditions: "Refrigerated",
     finalPricePerKg: "",
     transportDetails: "Truck",
-    qrCodeId: generateQRCode() // Initialize with a random QR code
+    qrCodeId: `QR-${Math.floor(Math.random() * 10000)}` // Initialize with a random QR code
   });
 
   // Get today's date in YYYY-MM-DD format for max date validation
   const today = new Date().toISOString().split('T')[0];
 
-  // Fetch batch counter
-  const { data: batchCount } = useReadContract({
-    contract: productTraceabilityContract,
-    method: "function batchCounter() view returns (uint256)",
-  });
-
-  // Fetch pending batches
+  // Fetch batch details and check approval status
   useEffect(() => {
-    if (!batchCount) return;
-
-    const fetchPendingBatches = async () => {
-      setIsLoadingBatches(true);
+    const fetchBatchDetails = async () => {
       try {
-        const batches = [];
-        
-        // Fetch all batches in parallel
-        const batchPromises = [];
-        for (let i = 1; i <= batchCount; i++) {
-          batchPromises.push(
-            readContract({
-              contract: productTraceabilityContract,
-              method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
-              params: [i],
-            }).then(async (cropData) => {
-              if (!cropData || !cropData[0]) return null;
+        const cropBatch = await readContract({
+          contract: productTraceabilityContract,
+          method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+          params: [batchId],
+        });
 
-              const processedData = await readContract({
-                contract: productTraceabilityContract,
-                method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
-                params: [i],
-              });
+        const request = await readContract({
+          contract: productTraceabilityContract,
+          method: "function getProcessingRequest(uint256) view returns (uint256 batchId, address traderAddress, uint256 proposedFinalPrice, bool isApproved, bool isRejected, uint256 requestTimestamp)",
+          params: [batchId],
+        });
 
-              // Only include batches that haven't been processed yet
-              if (!processedData || processedData[0] === "0x0000000000000000000000000000000000000000") {
-                return {
-                  batchId: i,
-                  productName: cropData[1],
-                  quantity: convertBigInt(cropData[2]),
-                  qualityGrade: cropData[3],
-                  harvestDate: convertBigInt(cropData[4]),
-                };
-              }
-              return null;
-            })
-          );
+        if (!request || !request.isApproved || request.traderAddress.toLowerCase() !== account.address.toLowerCase()) {
+          toast.error("This batch is not approved for processing");
+          navigate("/trader/processing-requests");
+          return;
         }
 
-        const results = await Promise.all(batchPromises);
-        const validBatches = results.filter(batch => batch !== null);
-        setPendingBatches(validBatches);
+        setBatchDetails({
+          productName: cropBatch[1],
+          quantity: cropBatch[2],
+          qualityGrade: cropBatch[3],
+          harvestDate: cropBatch[4],
+          farmLocation: cropBatch[5],
+          basePricePerKg: cropBatch[6],
+        });
       } catch (error) {
-        console.error("Error fetching pending batches:", error);
+        console.error("Error fetching batch details:", error);
+        toast.error("Failed to fetch batch details");
+        navigate("/trader/processing-requests");
       } finally {
-        setIsLoadingBatches(false);
+        setIsLoading(false);
       }
     };
 
-    fetchPendingBatches();
-  }, [batchCount]);
+    if (batchId && account?.address) {
+      fetchBatchDetails();
+    }
+  }, [batchId, account?.address]);
 
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === 'batchId') {
-      const batch = pendingBatches.find(b => b.batchId.toString() === value);
-      setSelectedBatch(batch);
-    }
-    
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -123,14 +82,14 @@ export default function AddProduct() {
   const handleRegenerateQR = () => {
     setFormData(prev => ({
       ...prev,
-      qrCodeId: generateQRCode()
+      qrCodeId: `QR-${Math.floor(Math.random() * 10000)}`
     }));
   };
 
   // Get minimum date for processing (harvest date)
   const getMinProcessingDate = () => {
-    if (!selectedBatch) return '';
-    return formatDateForInput(selectedBatch.harvestDate);
+    if (!batchDetails) return '';
+    return new Date(batchDetails.harvestDate * 1000).toISOString().split('T')[0];
   };
 
   // Get minimum date for packaging (processing date)
@@ -147,21 +106,21 @@ export default function AddProduct() {
       // Validate dates
       const processingDate = new Date(formData.processingDate);
       const packagingDate = new Date(formData.packagingDate);
-      const harvestDate = new Date(selectedBatch.harvestDate * 1000);
+      const harvestDate = new Date(batchDetails.harvestDate * 1000);
       const today = new Date();
 
       if (processingDate < harvestDate) {
-        alert("Processing date cannot be before harvest date");
+        toast.error("Processing date cannot be before harvest date");
         return;
       }
 
       if (packagingDate < processingDate) {
-        alert("Packaging date cannot be before processing date");
+        toast.error("Packaging date cannot be before processing date");
         return;
       }
 
       if (processingDate > today || packagingDate > today) {
-        alert("Dates cannot be in the future");
+        toast.error("Dates cannot be in the future");
         return;
       }
 
@@ -173,7 +132,7 @@ export default function AddProduct() {
         contract: productTraceabilityContract,
         method: "function processBatch(uint256 _batchId, uint256 _processingDate, uint256 _packagingDate, string _storageConditions, uint256 _finalPricePerKg, string _transportDetails, string _qrCodeId)",
         params: [
-          BigInt(formData.batchId),
+          BigInt(batchId),
           BigInt(processingTimestamp),
           BigInt(packagingTimestamp),
           formData.storageConditions,
@@ -183,21 +142,29 @@ export default function AddProduct() {
         ]
       });
 
-      sendTransaction(transaction, {
+      await sendTransaction(transaction, {
         onSuccess: () => {
-          alert("Product processing details added successfully!");
-          navigate("/trader-dashboard");
+          toast.success("Product processing details added successfully!");
+          navigate("/trader/products");
         },
         onError: (error) => {
           console.error("Error processing batch:", error);
-          alert(`Failed to process batch: ${error.message}`);
+          toast.error(`Failed to process batch: ${error.message}`);
         }
       });
     } catch (error) {
-      console.error("Validation error:", error);
-      alert("Please check your inputs and try again");
+      console.error("Error:", error);
+      toast.error("Please check your inputs and try again");
     }
   };
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!batchDetails) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -206,39 +173,16 @@ export default function AddProduct() {
           Process Agricultural Product
         </h1>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Batch Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Select Batch to Process
-            </label>
-            {isLoadingBatches ? (
-              <p className="mt-1 text-sm text-gray-500">Loading available batches...</p>
-            ) : pendingBatches.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-500">No pending batches available for processing</p>
-            ) : (
-              <select
-                name="batchId"
-                value={formData.batchId}
-                onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                required
-              >
-                <option value="">Select a batch</option>
-                {pendingBatches.map((batch) => (
-                  <option key={batch.batchId} value={batch.batchId}>
-                    Batch #{batch.batchId} - {batch.productName} ({batch.quantity}kg, {batch.qualityGrade})
-                  </option>
-                ))}
-              </select>
-            )}
-            {selectedBatch && (
-              <p className="mt-1 text-sm text-gray-500">
-                Harvest Date: {new Date(selectedBatch.harvestDate * 1000).toLocaleDateString()}
-              </p>
-            )}
-          </div>
+        <div className="mb-6 p-4 bg-emerald-50 rounded-lg">
+          <h2 className="text-lg font-semibold text-emerald-700 mb-2">Batch Details</h2>
+          <p><span className="font-medium">Product:</span> {batchDetails.productName}</p>
+          <p><span className="font-medium">Quantity:</span> {batchDetails.quantity} kg</p>
+          <p><span className="font-medium">Quality Grade:</span> {batchDetails.qualityGrade}</p>
+          <p><span className="font-medium">Harvest Date:</span> {new Date(batchDetails.harvestDate * 1000).toLocaleDateString()}</p>
+          <p><span className="font-medium">Base Price:</span> Rs. {batchDetails.basePricePerKg / 100} per kg</p>
+        </div>
 
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Processing Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -255,7 +199,7 @@ export default function AddProduct() {
               required
             />
             <p className="mt-1 text-sm text-gray-500">
-              Must be after harvest date ({selectedBatch ? new Date(selectedBatch.harvestDate * 1000).toLocaleDateString() : 'N/A'}) and not in the future
+              Must be after harvest date ({new Date(batchDetails.harvestDate * 1000).toLocaleDateString()}) and not in the future
             </p>
           </div>
 
@@ -374,4 +318,4 @@ export default function AddProduct() {
       </div>
     </div>
   );
-}
+} 

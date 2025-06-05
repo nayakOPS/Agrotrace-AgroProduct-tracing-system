@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { toast } from 'react-hot-toast';
+import { useReadContract } from "thirdweb/react";
 import { 
   FaQrcode, 
   FaCamera, 
@@ -21,12 +22,43 @@ import {
   FaExclamationTriangle 
 } from 'react-icons/fa';
 import { MdOutlineQrCodeScanner } from 'react-icons/md';
+import { productTraceabilityContract } from '../client';
+import { formatDate, formatPrice } from '../utils/helpers';
 
 const ScanQR = () => {
   const [hasPermission, setHasPermission] = useState(null);
   const [productData, setProductData] = useState(null);
   const [scanning, setScanning] = useState(true);
   const [cameraError, setCameraError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [batchId, setBatchId] = useState(null);
+
+  const { data: productHistory, isLoading: isHistoryLoading } = useReadContract({
+    contract: productTraceabilityContract,
+    method: "function getProductHistory(uint256 _batchId) view returns ((string farmerName, string traderName, string productName) names, (uint256 basePrice, uint256 finalPrice) prices, (uint256 harvestDate, uint256 packagingDate) dates, (string qualityGrade, string certificationNumber, string qrCodeId) quality)",
+    params: [batchId],
+    enabled: !!batchId
+  });
+
+  useEffect(() => {
+    if (productHistory) {
+      setProductData({
+        product: productHistory.names.productName,
+        batchId: batchId,
+        farmer: productHistory.names.farmerName,
+        trader: productHistory.names.traderName,
+        certification: productHistory.quality.certificationNumber,
+        harvestDate: formatDate(productHistory.dates.harvestDate),
+        packagingDate: formatDate(productHistory.dates.packagingDate),
+        basePrice: formatPrice(productHistory.prices.basePrice),
+        finalPrice: formatPrice(productHistory.prices.finalPrice),
+        qrCodeId: productHistory.quality.qrCodeId,
+        qualityGrade: productHistory.quality.qualityGrade
+      });
+      setLoading(false);
+      toast.success('Product details fetched successfully!');
+    }
+  }, [productHistory, batchId]);
 
   useEffect(() => {
     const requestCameraPermission = async () => {
@@ -49,20 +81,17 @@ const ScanQR = () => {
     }
   }, [scanning]);
 
-  // Trigger success toast when productData is set
-  useEffect(() => {
-    if (productData) {
-      toast.success('QR Code scanned successfully!');
-    }
-  }, [productData]);
-
   const handleScan = (result) => {
-    // Only process if we are currently scanning
     if (result && scanning) {
       try {
         const data = JSON.parse(result?.text);
-        setProductData(data);
-        setScanning(false); // Stop scanning after successful scan
+        if (data.batchId) {
+          setBatchId(data.batchId);
+          setLoading(true);
+          setScanning(false);
+        } else {
+          toast.error('Invalid QR code data: Missing batch ID');
+        }
       } catch (err) {
         console.error('Error parsing QR data:', err);
         toast.error('Invalid QR code data');
@@ -78,6 +107,7 @@ const ScanQR = () => {
 
   const resetScanner = () => {
     setProductData(null);
+    setBatchId(null);
     setScanning(true);
   };
 
@@ -87,7 +117,7 @@ const ScanQR = () => {
         <FaQrcode className="mr-2" /> Scan QR Code
       </h1>
 
-      {/* Error Handling UI - show above camera frame */}
+      {/* Error Handling UI */}
       {(hasPermission === false || cameraError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 w-full text-center">
           {hasPermission === false ? (
@@ -115,8 +145,16 @@ const ScanQR = () => {
         </div>
       )}
 
-      {/* Only show camera frame if no error, permission granted and scanning is true */}
-      {!productData && hasPermission !== false && !cameraError && scanning && (
+      {/* Loading State */}
+      {loading && (
+        <div className="w-full text-center py-8">
+          <FaSyncAlt className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600">Fetching product details...</p>
+        </div>
+      )}
+
+      {/* QR Scanner */}
+      {!productData && !loading && hasPermission !== false && !cameraError && scanning && (
         <div className="max-w-md mx-auto mb-6">
           <div className="bg-gray-100 rounded-lg overflow-hidden shadow-md">
             <div className="relative bg-black aspect-square">
@@ -126,7 +164,6 @@ const ScanQR = () => {
                   <h3 className="text-lg font-medium text-white">Requesting camera access...</h3>
                 </div>
               )}
-              {/* Render QrReader only when scanning is true and permission granted */}
               {hasPermission === true && scanning && !cameraError && (
                 <QrReader
                   constraints={{ facingMode: 'environment' }}
@@ -158,7 +195,8 @@ const ScanQR = () => {
         </div>
       )}
 
-      {productData && (
+      {/* Product Details */}
+      {productData && !loading && (
         <>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 w-full">
             <div className="flex items-center justify-center text-green-700 text-lg font-semibold mb-2">
@@ -319,7 +357,6 @@ const ScanQR = () => {
                   <div>
                     <p className="text-sm text-gray-500">Scan URL</p>
                     <p className="text-blue-500 break-all">
-                      {/* {productData.scanUrl} */}
                       {`${window.location.origin}/scan-qr`}
                     </p>
                   </div>

@@ -5,7 +5,9 @@ import {
   FaBox, 
   FaUser, 
   FaChartLine,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaLeaf,
+  FaCheckCircle
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,6 +27,18 @@ const FarmerSidebar = () => {
       label: 'Add Crop',
       icon: <FaPlusCircle className="w-5 h-5" />,
       description: 'Register new crop batches'
+    },
+    {
+      path: '/farmer/pending-bids',
+      label: 'Pending Bids',
+      icon: <FaLeaf className="w-5 h-5" />,
+      description: 'Manage trader bids'
+    },
+    {
+      path: '/farmer/processing-requests',
+      label: 'Processing Requests',
+      icon: <FaCheckCircle className="w-5 h-5" />,
+      description: 'Manage processing requests'
     },
     {
       path: '/farmer/products',

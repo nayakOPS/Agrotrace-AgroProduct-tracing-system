@@ -256,7 +256,7 @@ export default function Products() {
       // Fetch the complete product history for this batch
       const productHistory = await readContract({
         contract: productTraceabilityContract,
-        method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+        method: "function getProductHistory(uint256) view returns (address, string, address, string, string, uint256, uint256, uint256, uint256, string, string, string)",
         params: [batchId],
       });
 
@@ -268,19 +268,19 @@ export default function Products() {
       setQrCodeId(newQrCodeId);
       
       // Create formatted QR code data in a human-readable format
-      const harvestDate = formatDate(convertBigInt(productHistory[5]));
-      const packagingDate = formatDate(convertBigInt(productHistory[6]));
+      const harvestDate = formatDate(convertBigInt(productHistory[7]));
+      const packagingDate = formatDate(convertBigInt(productHistory[8]));
       
       const qrData = {
-        product: productHistory[2],
-        farmer: formatAddress(productHistory[0]),
-        trader: formatAddress(productHistory[1]),
-        basePrice: convertBigInt(productHistory[3]) / 100,
-        finalPrice: convertBigInt(productHistory[4]) / 100,
+        product: productHistory[4],
+        farmer: productHistory[1], // Farmer's name
+        trader: productHistory[3], // Trader's business name
+        basePrice: convertBigInt(productHistory[5]) / 100,
+        finalPrice: convertBigInt(productHistory[6]) / 100,
         harvestDate: harvestDate,
         packagingDate: packagingDate,
-        qualityGrade: productHistory[7],
-        certification: productHistory[8],
+        qualityGrade: productHistory[9],
+        certification: productHistory[10],
         qrCodeId: newQrCodeId,
         batchId: batchId,
         scanUrl: "http://localhost:5174/scan-qr"

@@ -4,7 +4,6 @@ import { ROUTES } from './routes.jsx';
 import { ProtectedRoute } from './components/ProtectedRoute.jsx';
 import LoadingSpinner from './components/LoadingSpinner.jsx';
 import { AuthProvider } from './context/AuthContext';
-import ScanQR from './pages/ScanQR';
 
 export const App = () => {
   return (
@@ -62,9 +61,6 @@ export const App = () => {
                 }
               />
             ))}
-            
-            {/* ScanQR Route */}
-            {/* <Route path="/scan-qr" element={<ScanQR />} /> */}
             
             {/* Fallback Route - Redirect to appropriate dashboard if logged in */}
             <Route path="*" element={
