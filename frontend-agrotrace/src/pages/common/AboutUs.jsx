@@ -11,7 +11,7 @@ const AboutUs = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-emerald-800 mb-4">About AgroChain</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-emerald-800 mb-4">About AgroTrace</h2>
           <div className="w-24 h-1 bg-emerald-500 mx-auto"></div>
         </motion.div>
 
@@ -23,7 +23,7 @@ const AboutUs = () => {
               transition={{ delay: 0.2 }}
               className="text-lg md:text-xl text-gray-700 leading-relaxed mb-12 text-center max-w-3xl mx-auto"
             >
-              AgroChain revolutionizes agricultural supply chains with blockchain technology, 
+              AgroTrace revolutionizes agricultural supply chains with blockchain technology, 
               ensuring transparency from farm to table. Our platform empowers farmers, 
               traders, and consumers with verifiable product histories.
             </motion.p>

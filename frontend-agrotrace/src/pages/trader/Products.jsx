@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useReadContract, useContractEvents } from "thirdweb/react";
 import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
@@ -7,6 +7,9 @@ import { prepareEvent } from "thirdweb";
 import { readContract } from "thirdweb";
 import { QRCodeSVG } from 'qrcode.react';
 import { saveAs } from 'file-saver';
+import { toast } from "react-hot-toast";
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
+import { motion } from "framer-motion";
 
 const convertBigInt = (value) => {
   return typeof value === 'bigint' ? Number(value) : value;
@@ -28,52 +31,83 @@ const formatAddress = (address) => {
 export default function Products() {
   const account = useActiveAccount();
   const navigate = useNavigate();
-  const [allBatches, setAllBatches] = React.useState([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [showQRPopup, setShowQRPopup] = React.useState(false);
-  const [currentBatch, setCurrentBatch] = React.useState(null);
-  const [qrCodeId, setQrCodeId] = React.useState('');
-  const [qrValue, setQrValue] = React.useState('');
+  const [allBatches, setAllBatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showQRPopup, setShowQRPopup] = useState(false);
+  const [currentBatch, setCurrentBatch] = useState(null);
+  const [qrCodeId, setQrCodeId] = useState('');
+  const [qrValue, setQrValue] = useState('');
+  const [error, setError] = useState(null);
 
   // Get batch counter
-  const { data: batchCount } = useReadContract({
+  const { data: batchCount, error: batchCountError } = useReadContract({
     contract: productTraceabilityContract,
     method: "function batchCounter() view returns (uint256)",
   });
 
+  useEffect(() => {
+    console.log("Batch Count:", batchCount?.toString());
+    if (batchCountError) {
+      console.error("Error fetching batch count:", batchCountError);
+      setError("Failed to fetch batch count");
+      setIsLoading(false);
+      return;
+    }
+  }, [batchCount, batchCountError]);
+
   // Fetch all batches when account or batchCount changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!account?.address || !batchCount) return;
 
     const fetchAllBatches = async () => {
       setIsLoading(true);
       try {
+        console.log("Starting to fetch batches...");
         const batches = [];
         
         // Fetch all batches in parallel
         const batchPromises = [];
-        for (let i = 1; i <= batchCount; i++) {
+        for (let i = 1; i <= Number(batchCount); i++) {
           batchPromises.push(
             readContract({
               contract: productTraceabilityContract,
-              method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
+              method: "function processedBatches(uint256) view returns (address traderAddress, uint256 processingDate, uint256 packagingDate, string storageConditions, uint256 finalPricePerKg, string transportDetails, string qrCodeId)",
               params: [i],
             }).then(async (processedData) => {
-              if (!processedData || !processedData[0]) return null;
+              if (!processedData || processedData[0] === "0x0000000000000000000000000000000000000000") {
+                console.log(`Batch ${i}: No processed data or trader address is zero.`);
+                return null;
+              }
+
+              console.log(`Batch ${i} - Contract Trader Address:`, processedData[0]);
+              console.log(`Batch ${i} - Connected Account Address:`, account.address);
+              console.log(`Batch ${i} - Addresses Match:`, processedData[0].toLowerCase() === account.address.toLowerCase());
 
               // Only process batches belonging to this trader
               if (processedData[0].toLowerCase() === account.address.toLowerCase()) {
+                console.log(`Found processed batch ${i} for current trader.`);
+                
                 const cropData = await readContract({
                   contract: productTraceabilityContract,
-                  method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+                  method: "function cropBatches(uint256) view returns (address farmerAddress, string productName, uint256 quantity, string qualityGrade, uint256 harvestDate, string farmLocation, uint256 basePricePerKg, string certificationNumber)",
                   params: [i],
                 });
 
-                // Get complete product history for QR code value
+                if (!cropData || cropData[0] === "0x0000000000000000000000000000000000000000") {
+                  console.warn(`Batch ${i}: No crop data or farmer address is zero.`);
+                  return null;
+                }
+
                 const productHistory = await readContract({
                   contract: productTraceabilityContract,
-                  method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+                  method: "function getProductHistory(uint256) view returns (((string farmerName, string traderName, string productName) names, (uint256 basePrice, uint256 finalPrice) prices, (uint256 harvestDate, uint256 packagingDate) dates, (string qualityGrade, string certificationNumber, string qrCodeId) quality))",
                   params: [i],
+                });
+
+                console.log(`Fetched complete data for batch ${i}:`, {
+                  processed: processedData,
+                  crop: cropData,
+                  history: productHistory
                 });
 
                 return {
@@ -98,16 +132,16 @@ export default function Products() {
                     certificationNumber: cropData[7]
                   },
                   productHistory: {
-                    farmer: productHistory[0],
-                    trader: productHistory[1],
-                    productName: productHistory[2],
-                    basePrice: convertBigInt(productHistory[3]),
-                    finalPrice: convertBigInt(productHistory[4]),
-                    harvestDate: convertBigInt(productHistory[5]),
-                    packagingDate: convertBigInt(productHistory[6]),
-                    qualityGrade: productHistory[7],
-                    certificationNumber: productHistory[8],
-                    qrCodeId: productHistory[9]
+                    farmerName: productHistory.names.farmerName,
+                    traderName: productHistory.names.traderName,
+                    productName: productHistory.names.productName,
+                    basePrice: convertBigInt(productHistory.prices.basePrice),
+                    finalPrice: convertBigInt(productHistory.prices.finalPrice),
+                    harvestDate: convertBigInt(productHistory.dates.harvestDate),
+                    packagingDate: convertBigInt(productHistory.dates.packagingDate),
+                    qualityGrade: productHistory.quality.qualityGrade,
+                    certificationNumber: productHistory.quality.certificationNumber,
+                    qrCodeId: productHistory.quality.qrCodeId
                   }
                 };
               }
@@ -117,19 +151,12 @@ export default function Products() {
         }
 
         const results = await Promise.all(batchPromises);
-        const uniqueBatches = results.filter(batch => batch !== null)
-          .reduce((acc, current) => {
-            const x = acc.find(item => item.batchId === current.batchId);
-            if (!x) {
-              return acc.concat([current]);
-            } else {
-              return acc;
-            }
-          }, []);
-          console.log(uniqueBatches);
+        const uniqueBatches = results.filter(batch => batch !== null);
+        console.log("Final processed batches (filtered):", uniqueBatches);
         setAllBatches(uniqueBatches);
       } catch (error) {
         console.error("Error fetching batches:", error);
+        setError("Failed to fetch batches");
       } finally {
         setIsLoading(false);
       }
@@ -149,7 +176,7 @@ export default function Products() {
   });
 
   // Handle new events - modified to prevent duplicates
-  React.useEffect(() => {
+  useEffect(() => {
     if (!processedEvents?.length || !account?.address || isLoading) return;
 
     const handleNewBatch = async () => {
@@ -164,19 +191,21 @@ export default function Products() {
 
             const processedData = await readContract({
               contract: productTraceabilityContract,
-              method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
+              method: "function processedBatches(uint256) view returns (address traderAddress, uint256 processingDate, uint256 packagingDate, string storageConditions, uint256 finalPricePerKg, string transportDetails, string qrCodeId)",
               params: [batchId],
             });
+            if (!processedData || processedData[0] === "0x0000000000000000000000000000000000000000") return null;
 
             const cropData = await readContract({
               contract: productTraceabilityContract,
-              method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
+              method: "function cropBatches(uint256) view returns (address farmerAddress, string productName, uint256 quantity, string qualityGrade, uint256 harvestDate, string farmLocation, uint256 basePricePerKg, string certificationNumber)",
               params: [batchId],
             });
+            if (!cropData || cropData[0] === "0x0000000000000000000000000000000000000000") return null;
 
             const productHistory = await readContract({
               contract: productTraceabilityContract,
-              method: "function getProductHistory(uint256) view returns (address, address, string, uint256, uint256, uint256, uint256, string, string, string)",
+              method: "function getProductHistory(uint256) view returns (((string farmerName, string traderName, string productName) names, (uint256 basePrice, uint256 finalPrice) prices, (uint256 harvestDate, uint256 packagingDate) dates, (string qualityGrade, string certificationNumber, string qrCodeId) quality))",
               params: [batchId],
             });
 
@@ -202,16 +231,16 @@ export default function Products() {
                 certificationNumber: cropData[7]
               },
               productHistory: {
-                farmer: productHistory[0],
-                trader: productHistory[1],
-                productName: productHistory[2],
-                basePrice: convertBigInt(productHistory[3]),
-                finalPrice: convertBigInt(productHistory[4]),
-                harvestDate: convertBigInt(productHistory[5]),
-                packagingDate: convertBigInt(productHistory[6]),
-                qualityGrade: productHistory[7],
-                certificationNumber: productHistory[8],
-                qrCodeId: productHistory[9]
+                farmerName: productHistory.names.farmerName,
+                traderName: productHistory.names.traderName,
+                productName: productHistory.names.productName,
+                basePrice: convertBigInt(productHistory.prices.basePrice),
+                finalPrice: convertBigInt(productHistory.prices.finalPrice),
+                harvestDate: convertBigInt(productHistory.dates.harvestDate),
+                packagingDate: convertBigInt(productHistory.dates.packagingDate),
+                qualityGrade: productHistory.quality.qualityGrade,
+                certificationNumber: productHistory.quality.certificationNumber,
+                qrCodeId: productHistory.quality.qrCodeId
               }
             };
           })
@@ -256,7 +285,7 @@ export default function Products() {
       // Fetch the complete product history for this batch
       const productHistory = await readContract({
         contract: productTraceabilityContract,
-        method: "function getProductHistory(uint256) view returns (address, string, address, string, string, uint256, uint256, uint256, uint256, string, string, string)",
+        method: "function getProductHistory(uint256) view returns (((string farmerName, string traderName, string productName) names, (uint256 basePrice, uint256 finalPrice) prices, (uint256 harvestDate, uint256 packagingDate) dates, (string qualityGrade, string certificationNumber, string qrCodeId) quality))",
         params: [batchId],
       });
 
@@ -268,19 +297,19 @@ export default function Products() {
       setQrCodeId(newQrCodeId);
       
       // Create formatted QR code data in a human-readable format
-      const harvestDate = formatDate(convertBigInt(productHistory[7]));
-      const packagingDate = formatDate(convertBigInt(productHistory[8]));
+      const harvestDate = formatDate(convertBigInt(productHistory.dates.harvestDate));
+      const packagingDate = formatDate(convertBigInt(productHistory.dates.packagingDate));
       
       const qrData = {
-        product: productHistory[4],
-        farmer: productHistory[1], // Farmer's name
-        trader: productHistory[3], // Trader's business name
-        basePrice: convertBigInt(productHistory[5]) / 100,
-        finalPrice: convertBigInt(productHistory[6]) / 100,
+        product: productHistory.names.productName,
+        farmer: productHistory.names.farmerName,
+        trader: productHistory.names.traderName,
+        basePrice: convertBigInt(productHistory.prices.basePrice) / 100,
+        finalPrice: convertBigInt(productHistory.prices.finalPrice) / 100,
         harvestDate: harvestDate,
         packagingDate: packagingDate,
-        qualityGrade: productHistory[9],
-        certification: productHistory[10],
+        qualityGrade: productHistory.quality.qualityGrade,
+        certification: productHistory.quality.certificationNumber,
         qrCodeId: newQrCodeId,
         batchId: batchId,
         scanUrl: "http://localhost:5174/scan-qr"
@@ -395,6 +424,38 @@ export default function Products() {
     );
   };
 
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-500 text-center">
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!allBatches.length) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">No Products Found</h2>
+          <p className="text-gray-600">You haven't processed any products yet.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
@@ -409,77 +470,125 @@ export default function Products() {
             </button>
           </div>
           
-          {isLoading ? (
-            <div className="text-center py-8">
-              <p className="text-emerald-700">Loading product details...</p>
-            </div>
-          ) : uniqueBatchesToRender.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">You haven't processed any products yet.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Farmer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Farmer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allBatches.map(({ batchId, processedDetails, cropDetails, productHistory }) => (
+                  <tr key={`${batchId}-${cropDetails.productName}`} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {batchId.toString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {cropDetails.productName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {productHistory.farmerName 
+                        ? productHistory.farmerName
+                        : formatAddress(cropDetails.farmerAddress)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {processedDetails.processingDate 
+                        ? formatDate(processedDetails.processingDate)
+                        : "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {processedDetails.finalPricePerKg 
+                        ? `Rs. ${(processedDetails.finalPricePerKg / 100).toFixed(2)}`
+                        : "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {processedDetails.qrCodeId ? (
+                        <button 
+                          onClick={() => handleGenerateQR(batchId)}
+                          className="text-emerald-600 hover:underline"
+                        >
+                          {processedDetails.qrCodeId}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleGenerateQR(batchId)}
+                          className="text-emerald-600 hover:underline"
+                        >
+                          Generate QR
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {uniqueBatchesToRender.map(({ batchId, processedDetails, cropDetails }) => (
-                    <tr key={`${batchId}-${cropDetails.productName}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {batchId.toString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.productName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.farmerAddress 
-                          ? `${cropDetails.farmerAddress.slice(0, 6)}...${cropDetails.farmerAddress.slice(-4)}`
-                          : "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {processedDetails.processingDate 
-                          ? new Date(processedDetails.processingDate * 1000).toLocaleDateString()
-                          : "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {processedDetails.finalPricePerKg 
-                          ? `Rs. ${processedDetails.finalPricePerKg / 100}`
-                          : "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {processedDetails.qrCodeId ? (
-                          <button 
-                            onClick={() => handleGenerateQR(batchId)}
-                            className="text-emerald-600 hover:underline"
-                          >
-                            {processedDetails.qrCodeId}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleGenerateQR(batchId)}
-                            className="text-emerald-600 hover:underline"
-                          >
-                            Generate QR
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* QR Code Attachment Demonstration Section */}
+        <div className="mt-12 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-emerald-700 mb-6 text-center">How a QR Code is Attached</h2>
+          <p className="text-gray-600 mb-8 text-center">
+            Here's an example of how our QR codes are integrated into the product packaging to ensure traceability.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Before Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex flex-col items-center p-4 border border-gray-200 rounded-lg shadow-sm"
+            >
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Before: Unmarked Product</h3>
+              <div className="w-full max-w-sm h-64 flex items-center justify-center">
+                <img
+                  src="/fresh_tomato.jpg"
+                  alt="Product before QR attachment"
+                  className="w-full h-full object-contain rounded-md shadow-md"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-4 text-center">
+                A fresh batch of produce, ready for packaging.
+              </p>
+            </motion.div>
+
+            {/* After Section */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-col items-center p-4 border border-gray-200 rounded-lg shadow-sm"
+            >
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">After: QR Code Attached</h3>
+              <div className="relative w-full max-w-sm h-64 flex items-center justify-center">
+                <img
+                  src="/tomatoes.webp"
+                  alt="Product with QR attached"
+                  className="w-full h-full object-contain rounded-md shadow-md"
+                />
+                <img
+                  src="/dummy_qr.jpeg"
+                  alt="Attached QR Code"
+                  className="absolute top-[60%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border-4 border-white rounded-md shadow-lg object-contain"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-4 text-center">
+                The product is now traceable with a unique QR code for consumers.
+              </p>
+            </motion.div>
+          </div>
+        </div>
+
+        {showQRPopup && (
+          <QRPopup />
+        )}
       </div>
-      <QRPopup />
     </div>
   );
 }

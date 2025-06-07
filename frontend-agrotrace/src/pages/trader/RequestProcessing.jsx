@@ -8,6 +8,8 @@ import { readContract } from "thirdweb";
 import { toast } from "react-hot-toast";
 import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 import { canRequestProcessing } from '../../utils/requestValidation.js'; // Import the utility
+import { motion } from "framer-motion";
+import { FaClipboardList } from "react-icons/fa";
 
 // Helper function to convert BigInt to Number where needed
 const convertBigInt = (value) => {
@@ -174,13 +176,34 @@ export default function RequestProcessing() {
 
     if (!selectedBatchId) {
         setError("Please select a batch.");
+        toast.error("Please select a batch.");
         return;
     }
 
     const proposedPriceNum = Number(proposedFinalPrice);
+    
+    // Validation: Check if it's a valid number and greater than 0
     if (isNaN(proposedPriceNum) || proposedPriceNum <= 0) {
       setError("Please enter a valid proposed final price greater than 0.");
+      toast.error("Please enter a valid proposed final price greater than 0.");
       return;
+    }
+
+    // Validation: Check if it's an integer
+    if (!Number.isInteger(proposedPriceNum)) {
+      setError("Proposed final price must be an integer.");
+      toast.error("Proposed final price must be an integer.");
+      return;
+    }
+
+    // Validation: Proposed price must be greater than base price
+    if (selectedBatchDetails) {
+      const basePriceConverted = Number(selectedBatchDetails.basePricePerKg) / 100; // Base price is in paisa, convert to rupees
+      if (proposedPriceNum <= basePriceConverted) {
+        setError(`Proposed final price must be greater than the Base Price (₹${basePriceConverted}).`);
+        toast.error(`Proposed final price must be greater than the Base Price (₹${basePriceConverted}).`);
+        return;
+      }
     }
 
      // Perform cooldown check before sending transaction
@@ -252,74 +275,96 @@ export default function RequestProcessing() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="bg-white rounded-xl p-8 max-w-3xl mx-auto shadow-lg border border-gray-200">
-        <h2 className="text-2xl font-bold text-green-700 mb-6">Request Processing</h2>
+    <div className="flex flex-col items-center justify-center p-4 max-w-md mx-auto min-h-[calc(100vh-64px)] bg-white">
+      <h1 className="text-2xl font-bold mb-4 flex items-center text-emerald-700">
+        <FaClipboardList className="mr-2" /> Request Processing
+      </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md"
+      >
+        {/* Dropdown for selecting batch */}
+        <div className="mb-4">
+          <label htmlFor="batchId" className="block text-gray-700 text-sm font-bold mb-2">
+            Select Batch
+          </label>
+          <select
+            id="batchId"
+            name="batchId"
+            value={selectedBatchId}
+            onChange={handleInputChange}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-emerald-500 transition-all duration-200"
+          >
+            <option value="">-- Select a Batch --</option>
+            {availableBatches.map((batch) => (
+              <option key={batch.batchId} value={batch.batchId}>
+                Batch #{batch.batchId} - {batch.productName} ({batch.quantity} kg)
+                {selectedBatchDetails?.batchId.toString() === batch.batchId.toString() && 
+                 ` | Base Price: Rs.${(Number(batch.basePricePerKg) / 100).toFixed(2)}/kg, Harvested: ${formatDateForInput(batch.harvestDate)}`
+                }
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Select Batch */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Batch
-              </label>
-              <select
-                required
-                name="batchId"
-                value={selectedBatchId}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 pr-8"
-              >
-                <option value="">-- Select a Batch --</option>
-                {availableBatches.map((batch) => (
-                  <option key={batch.batchId} value={batch.batchId.toString()}>
-                    Batch #{batch.batchId.toString()} - {batch.productName} ({formatQuantity(batch.quantity)})
-                  </option>
-                ))}
-              </select>
-              {selectedBatchDetails && (
-                  <p className="mt-2 text-sm text-gray-600">
-                      Base Price: {formatPrice(selectedBatchDetails.basePricePerKg)}/kg, Harvested: {new Date(selectedBatchDetails.harvestDate * 1000).toLocaleDateString()}
-                  </p>
-              )}
-            </div>
+        {/* Display base price and harvest date for selected batch */}
+        {selectedBatchDetails && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="mb-4 p-3 bg-emerald-50 rounded-md text-emerald-800 text-sm"
+          >
+            <p className="font-semibold">Base Price: Rs.{(Number(selectedBatchDetails.basePricePerKg) / 100).toFixed(2)}/kg</p>
+            <p className="font-semibold">Harvested: {formatDateForInput(selectedBatchDetails.harvestDate)}</p>
+          </motion.div>
+        )}
 
-            {/* Proposed Final Price */}
-            {selectedBatchId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Proposed Final Price (per kg)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                 min={0.01} // Allow any price >= 0.01
-                name="proposedFinalPrice"
-                value={proposedFinalPrice}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                placeholder="Enter proposed price..."
-              />
-            </div>
-             )}
+        {/* Input for proposed final price */}
+        <div className="mb-4">
+          <label htmlFor="proposedFinalPrice" className="block text-gray-700 text-sm font-bold mb-2">
+            Proposed Final Price (per kg)
+          </label>
+          <input
+            type="number"
+            id="proposedFinalPrice"
+            name="proposedFinalPrice"
+            value={proposedFinalPrice}
+            onChange={handleInputChange}
+            placeholder="Enter proposed price..."
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-emerald-500 transition-all duration-200"
+            min={selectedBatchDetails ? (Number(selectedBatchDetails.basePricePerKg) / 100) + 1 : 1} // Ensure min is basePrice + 1 for integer validation
+            step="1" // Ensure integer input
+          />
+        </div>
 
-            {error && (
-              <p className="text-sm text-red-600 mt-2 text-center">{error}</p>
-            )}
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+            role="alert"
+          >
+            <strong className="font-bold">Error!</strong>
+            <span className="block sm:inline"> {error}</span>
+          </motion.div>
+        )}
 
-            <div className="flex justify-end pt-4">
-              <button
-                type="submit"
-                disabled={isSendingRequest || !selectedBatchId || !proposedFinalPrice}
-                className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSendingRequest ? 'Sending Request...' : 'Request Processing Permission'}
-              </button>
-            </div>
-          </form>
-
-      </div>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          onClick={handleSubmit}
+          disabled={isSendingRequest}
+          className="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-md hover:bg-emerald-700 focus:outline-none focus:shadow-outline disabled:opacity-50 transition-colors duration-200"
+        >
+          {isSendingRequest ? 'Requesting...' : 'Request Processing Permission'}
+        </button>
+      </motion.div>
     </div>
   );
 }

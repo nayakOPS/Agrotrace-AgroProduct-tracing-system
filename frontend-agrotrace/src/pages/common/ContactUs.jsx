@@ -10,8 +10,8 @@ const ContactUs = () => {
         </svg>
       ),
       title: "Email Us",
-      detail: "contact@agrochain.com",
-      action: "mailto:contact@agrochain.com"
+      detail: "contact@agrotrace.com",
+      action: "mailto:contact@agrotrace.com"
     },
     {
       icon: (
@@ -50,61 +50,10 @@ const ContactUs = () => {
 
         <div className="grid md:grid-cols-2 gap-12">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-xl p-8 md:p-10"
-          >
-            <h3 className="text-2xl font-semibold text-emerald-700 mb-6">Send Us a Message</h3>
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-gray-700 mb-2">Name</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    placeholder="Your name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Email</label>
-                  <input 
-                    type="email" 
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    placeholder="your@email.com"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2">Subject</label>
-                <input 
-                  type="text" 
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="How can we help?"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 mb-2">Message</label>
-                <textarea 
-                  rows="5"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Your message here..."
-                ></textarea>
-              </div>
-              <button 
-                type="submit"
-                className="w-full bg-emerald-600 text-white py-3 px-6 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-              >
-                Send Message
-              </button>
-            </form>
-          </motion.div>
-
-          <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-8"
+            className="space-y-8 md:col-span-2"
           >
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <h3 className="text-2xl font-semibold text-emerald-700 mb-6">Contact Information</h3>

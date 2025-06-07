@@ -5,6 +5,7 @@ import { useActiveAccount } from "thirdweb/react";
 import { useNavigate } from "react-router-dom";
 import { prepareEvent } from "thirdweb";
 import { readContract } from "thirdweb";
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 
 // Helper function to convert BigInt to Number where needed
 const convertBigInt = (value) => {
@@ -173,9 +174,7 @@ export default function Products() {
           </div>
           
           {isLoading ? (
-            <div className="text-center py-8">
-              <p className="text-emerald-700">Loading crop details...</p>
-            </div>
+            <LoadingSpinner />
           ) : allBatches.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">You haven't added any crop batches yet.</p>

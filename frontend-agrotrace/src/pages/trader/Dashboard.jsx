@@ -3,6 +3,7 @@ import { useReadContract, useContractEvents } from "thirdweb/react";
 import { productTraceabilityContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { readContract } from "thirdweb";
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -255,14 +256,7 @@ export default function Dashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-emerald-700 font-medium">Loading analytics...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (

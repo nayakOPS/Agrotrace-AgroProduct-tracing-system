@@ -74,6 +74,36 @@ const Home = () => {
     );
   };
 
+  // New section for the project overview image
+  const ProjectOverviewSection = () => {
+    return (
+      <section className="py-20 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold text-emerald-800 mb-8">
+              AgroTrace: Our Transparent Ecosystem
+            </h2>
+            <div className="w-full max-w-4xl mx-auto rounded-lg shadow-xl overflow-hidden">
+              <img 
+                src="agrotrace_overview.png" 
+                alt="AgroTrace Project Overview - Farmer to Trader Workflow"
+                className="w-full h-auto object-cover"
+              />
+            </div>
+            <p className="mt-8 text-xl text-gray-600 max-w-3xl mx-auto">
+              See how blockchain technology connects farmers and traders, ensuring traceability and fair practices.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+    );
+  };
+
   const FeatureCard = ({ icon, title, description }) => {
     return (
       <motion.div
@@ -98,7 +128,7 @@ const Home = () => {
             transition={{ duration: 0.5 }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-emerald-800 mb-4">Why Choose AgroChain?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-emerald-800 mb-4">Why Choose AgroTrace?</h2>
             <div className="w-24 h-1 bg-emerald-500 mx-auto mb-8"></div>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Our platform provides unique benefits for every participant in the agricultural supply chain.
@@ -130,6 +160,7 @@ const Home = () => {
   return (
     <div className="overflow-hidden">
       <HeroSection />
+      <ProjectOverviewSection />
       <FeaturesSection />
       <AboutUs />
       <div ref={contactRef} className="scroll-mt-16">

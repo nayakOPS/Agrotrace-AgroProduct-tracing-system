@@ -7,6 +7,7 @@ import Sidebar from './Sidebar';
 import { useState } from 'react';
 import { FaBars, FaTimes } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import LoadingSpinner from './LoadingSpinner';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -16,24 +17,13 @@ const Layout = ({ children }) => {
 
   // Show loading state while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl text-center"
-        >
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 dark:border-emerald-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-emerald-700 dark:text-emerald-400 font-medium">Loading...</p>
-        </motion.div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // If authenticated as farmer or trader, show sidebar
   if (isAuthenticated && (isFarmer || isTrader)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="min-h-screen bg-white">
         <Sidebar />
         <div className="ml-64 p-8 bg-white">
           <motion.main 
@@ -51,7 +41,7 @@ const Layout = ({ children }) => {
 
   // For homepage and unauthenticated users or authenticated but not registered users
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-white">
       <div className="fixed top-0 left-0 right-0 bg-white backdrop-blur-sm shadow-lg z-50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -63,7 +53,7 @@ const Layout = ({ children }) => {
                 alt="AgroTrace" 
                 className="w-8 h-8 transition-transform duration-200" 
               />
-              <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-primary-text-gradient dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
                 AgroTrace
               </span>
             </Link>
@@ -90,7 +80,7 @@ const Layout = ({ children }) => {
               <div className="w-[140px]">
                 <Link
                   to="/scan-qr"
-                  className="block w-full bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-500 dark:to-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-emerald-700 hover:to-teal-700 dark:hover:from-emerald-600 dark:hover:to-teal-600 transition-all duration-200 text-center shadow-md hover:shadow-lg"
+                  className="block w-full bg-emerald-500 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                 >
                   Scan QR Code
                 </Link>
@@ -176,7 +166,7 @@ const Layout = ({ children }) => {
                     <div className="w-full">
                       <Link
                         to="/scan-qr"
-                        className="block w-full bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-500 dark:to-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-emerald-700 hover:to-teal-700 dark:hover:from-emerald-600 dark:hover:to-teal-600 transition-all duration-200 text-center shadow-md hover:shadow-lg"
+                        className="block w-full bg-red-500 text-yellow-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Scan QR Code

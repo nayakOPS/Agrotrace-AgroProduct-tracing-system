@@ -4,6 +4,7 @@ import { registrationContract } from "../../client";
 import { useActiveAccount } from "thirdweb/react";
 import { useAuth } from "../../context/AuthContext";
 import { FaUser, FaEnvelope, FaPhone, FaIdCard, FaMapMarkerAlt, FaBuilding, FaUserCircle } from 'react-icons/fa';
+import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 
 export default function TraderProfile() {
   const account = useActiveAccount();
@@ -25,14 +26,7 @@ export default function TraderProfile() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-emerald-700 font-medium">Loading profile...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!isTrader) {

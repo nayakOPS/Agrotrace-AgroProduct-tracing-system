@@ -33,9 +33,9 @@ const Sidebar = () => {
   const farmerNavItems = [
     {
       path: '/farmer/dashboard',
-      label: 'Farmer Dashboard',
+      label: 'Dashboard',
       icon: <FaHome className="w-5 h-5" />,
-      description: 'View your farming analytics'
+      description: 'View your farming analytics and statistics'
     },
     {
       path: '/farmer/add-crop',
@@ -47,52 +47,52 @@ const Sidebar = () => {
       path: '/farmer/processing-requests',
       label: 'Processing Requests',
       icon: <FaCheckCircle className="w-5 h-5" />,
-      description: 'Manage processing requests'
+      description: 'Manage processing requests from traders'
     },
     {
       path: '/farmer/products',
       label: 'My Products',
       icon: <FaBox className="w-5 h-5" />,
-      description: 'Manage your crop batches'
+      description: 'View your crop batches'
     },
     {
       path: '/farmer/profile',
       label: 'Profile',
       icon: <FaUser className="w-5 h-5" />,
-      description: 'View and edit your profile'
+      description: 'View your profile'
     }
   ];
 
   const traderMenuItems = [
     {
-      title: 'Dashboard',
       path: '/trader/dashboard',
-      icon: <FaChartLine />,
+      label: 'Trader Dashboard',
+      icon: <FaChartLine className="w-5 h-5" />,
       description: 'View your trading analytics'
     },
     {
       path: '/trader/add-product',
       label: 'Process Product',
-      icon: <FaBoxOpen />,
+      icon: <FaBoxOpen className="w-5 h-5" />,
       description: 'Process agricultural products'
     },
     {
       path: '/trader/products',
       label: 'Products',
-      icon: <FaList />,
+      icon: <FaList className="w-5 h-5" />,
       description: 'View your processed products'
     },
     {
       path: '/trader/processing-requests',
       label: 'Processing Requests',
-      icon: <FaClipboardList />,
-      description: 'View your processing requests'
+      icon: <FaClipboardList className="w-5 h-5" />,
+      description: 'View your processing requests from farmers'
     },
     {
       path: '/trader/profile',
       label: 'Profile',
-      icon: <FaUser />,
-      description: 'Manage your profile'
+      icon: <FaUser className="w-5 h-5" />,
+      description: 'View your profile'
     }
   ];
 
@@ -145,9 +145,9 @@ const Sidebar = () => {
             >
               <Link
                 to={item.path}
-                className={`group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`group flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 ${
                   isActive
-                    ? 'bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 shadow-sm'
+                    ? 'bg-emerald-50 text-emerald-700 shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
                 }`}
               >
