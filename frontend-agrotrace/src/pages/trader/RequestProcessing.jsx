@@ -63,7 +63,7 @@ export default function RequestProcessing() {
       setIsLoadingBatches(true);
       try {
         const batches = [];
-
+        
         // Fetch all batches in parallel
         const batchPromises = [];
         const totalBatches = Number(batchCount);
@@ -124,16 +124,16 @@ export default function RequestProcessing() {
 
                console.log(`Batch ${i} available for request.`);
 
-              return {
-                batchId: i,
-                productName: cropData[1],
-                quantity: convertBigInt(cropData[2]),
-                qualityGrade: cropData[3],
-                harvestDate: convertBigInt(cropData[4]),
+                return {
+                  batchId: i,
+                  productName: cropData[1],
+                  quantity: convertBigInt(cropData[2]),
+                  qualityGrade: cropData[3],
+                  harvestDate: convertBigInt(cropData[4]),
                 basePricePerKg: convertBigInt(cropData[6]),
                  // Include the request details to check cooldown later in the UI if needed
                 existingRequest: hasExistingRequestFromThisTrader ? processingRequest : null
-              };
+                };
             })
           );
         }
@@ -178,7 +178,7 @@ export default function RequestProcessing() {
         setError("Please select a batch.");
         toast.error("Please select a batch.");
         return;
-    }
+      }
 
     const proposedPriceNum = Number(proposedFinalPrice);
     
@@ -186,15 +186,15 @@ export default function RequestProcessing() {
     if (isNaN(proposedPriceNum) || proposedPriceNum <= 0) {
       setError("Please enter a valid proposed final price greater than 0.");
       toast.error("Please enter a valid proposed final price greater than 0.");
-      return;
-    }
+        return;
+      }
 
     // Validation: Check if it's an integer
     if (!Number.isInteger(proposedPriceNum)) {
       setError("Proposed final price must be an integer.");
       toast.error("Proposed final price must be an integer.");
-      return;
-    }
+        return;
+      }
 
     // Validation: Proposed price must be greater than base price
     if (selectedBatchDetails) {
@@ -272,14 +272,14 @@ export default function RequestProcessing() {
         </div>
       </div>
      );
-  }
+    }
 
   return (
     <div className="flex flex-col items-center justify-center p-4 max-w-md mx-auto min-h-[calc(100vh-64px)] bg-white">
       <h1 className="text-2xl font-bold mb-4 flex items-center text-emerald-700">
         <FaClipboardList className="mr-2" /> Request Processing
-      </h1>
-
+        </h1>
+        
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -290,25 +290,25 @@ export default function RequestProcessing() {
         <div className="mb-4">
           <label htmlFor="batchId" className="block text-gray-700 text-sm font-bold mb-2">
             Select Batch
-          </label>
-          <select
+            </label>
+              <select
             id="batchId"
-            name="batchId"
+                name="batchId"
             value={selectedBatchId}
-            onChange={handleInputChange}
+                onChange={handleInputChange}
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-emerald-500 transition-all duration-200"
-          >
+              >
             <option value="">-- Select a Batch --</option>
             {availableBatches.map((batch) => (
-              <option key={batch.batchId} value={batch.batchId}>
+                  <option key={batch.batchId} value={batch.batchId}>
                 Batch #{batch.batchId} - {batch.productName} ({batch.quantity} kg)
                 {selectedBatchDetails?.batchId.toString() === batch.batchId.toString() && 
                  ` | Base Price: Rs.${(Number(batch.basePricePerKg) / 100).toFixed(2)}/kg, Harvested: ${formatDateForInput(batch.harvestDate)}`
                 }
-              </option>
-            ))}
-          </select>
-        </div>
+                  </option>
+                ))}
+              </select>
+          </div>
 
         {/* Display base price and harvest date for selected batch */}
         {selectedBatchDetails && (
@@ -327,19 +327,19 @@ export default function RequestProcessing() {
         <div className="mb-4">
           <label htmlFor="proposedFinalPrice" className="block text-gray-700 text-sm font-bold mb-2">
             Proposed Final Price (per kg)
-          </label>
-          <input
-            type="number"
+            </label>
+            <input
+              type="number"
             id="proposedFinalPrice"
             name="proposedFinalPrice"
             value={proposedFinalPrice}
-            onChange={handleInputChange}
+              onChange={handleInputChange}
             placeholder="Enter proposed price..."
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-emerald-500 transition-all duration-200"
             min={selectedBatchDetails ? (Number(selectedBatchDetails.basePricePerKg) / 100) + 1 : 1} // Ensure min is basePrice + 1 for integer validation
             step="1" // Ensure integer input
-          />
-        </div>
+            />
+          </div>
 
         {/* Error Message */}
         {error && (
@@ -356,14 +356,14 @@ export default function RequestProcessing() {
         )}
 
         {/* Submit Button */}
-        <button
-          type="submit"
+            <button
+              type="submit"
           onClick={handleSubmit}
           disabled={isSendingRequest}
           className="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-md hover:bg-emerald-700 focus:outline-none focus:shadow-outline disabled:opacity-50 transition-colors duration-200"
-        >
+            >
           {isSendingRequest ? 'Requesting...' : 'Request Processing Permission'}
-        </button>
+            </button>
       </motion.div>
     </div>
   );

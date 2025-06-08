@@ -22,7 +22,7 @@ export const canRequestProcessing = (request) => {
   }
 
   if (request.isRejected) {
-    const timeSinceRejection = Math.floor(Date.now() / 1000) - request.requestTimestamp;
+    const timeSinceRejection = Math.floor(Date.now() / 1000) - Number(request.requestTimestamp);
     if (timeSinceRejection < COOLDOWN_PERIOD) {
       const hoursRemaining = Math.ceil((COOLDOWN_PERIOD - timeSinceRejection) / 3600);
       return { 
@@ -45,7 +45,7 @@ export const canRequestProcessing = (request) => {
  * @returns {string} - Formatted time remaining
  */
 export const formatCooldownTime = (timestamp) => {
-  const timeSinceRejection = Math.floor(Date.now() / 1000) - timestamp;
+  const timeSinceRejection = Math.floor(Date.now() / 1000) - Number(timestamp);
   const remainingTime = COOLDOWN_PERIOD - timeSinceRejection;
   
   if (remainingTime <= 0) return 'Ready to request';

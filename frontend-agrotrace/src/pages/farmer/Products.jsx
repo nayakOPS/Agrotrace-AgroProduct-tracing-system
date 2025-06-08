@@ -26,23 +26,29 @@ export default function Products() {
 
   // Fetch all batches when account or batchCount changes
   React.useEffect(() => {
-    if (!account?.address || !batchCount) return;
+    if (!account?.address || batchCount === undefined) return; // Use undefined for initial state, 0 is a valid count
 
     const fetchAllBatches = async () => {
       setIsLoading(true);
       try {
-        const batches = [];
+        const batchesMap = new Map(); // Use a Map to store batches, ensuring unique batchId keys
         
-        // Fetch all batches in parallel
+        const currentBatchCount = Number(batchCount); // Convert BigInt to Number
+        if (currentBatchCount === 0) {
+          setAllBatches([]);
+          setIsLoading(false);
+          return;
+        }
+
         const batchPromises = [];
-        for (let i = 1; i <= batchCount; i++) {
+        for (let i = 1; i <= currentBatchCount; i++) {
           batchPromises.push(
             readContract({
               contract: productTraceabilityContract,
               method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
               params: [i],
             }).then(async (cropData) => {
-              console.log('Raw cropDetails for batch', i, ':', cropData);
+              // console.log('Raw cropDetails for batch', i, ':', cropData);
               
               // Skip if no data or empty farmer address
               if (!cropData || !cropData[0]) return null;
@@ -55,7 +61,7 @@ export default function Products() {
                   params: [i],
                 });
 
-                console.log('Processed details for batch', i, ':', processedData);
+                // console.log('Processed details for batch', i, ':', processedData);
 
                 // Structure the data properly
                 const cropDetails = {
@@ -82,11 +88,16 @@ export default function Products() {
           );
         }
 
-        // Wait for all promises and filter out nulls
         const results = await Promise.all(batchPromises);
-        const validBatches = results.filter(batch => batch !== null);
-        console.log('Fetched batches:', validBatches);
-        setAllBatches(validBatches);
+        results.forEach(batch => {
+          if (batch) {
+            batchesMap.set(batch.batchId, batch);
+          }
+        });
+        
+        const sortedBatches = Array.from(batchesMap.values()).sort((a, b) => a.batchId - b.batchId);
+        console.log('Fetched and unique batches:', sortedBatches);
+        setAllBatches(sortedBatches);
       } catch (error) {
         console.error("Error fetching batches:", error);
       } finally {
@@ -110,23 +121,24 @@ export default function Products() {
   // Handle new events
   React.useEffect(() => {
     if (cropEvents?.length && account?.address && !isLoading) {
-      const newBatch = cropEvents.find(
+      const newBatchEvent = cropEvents.find(
         event => event.args.farmer.toLowerCase() === account.address.toLowerCase()
       );
 
-      if (newBatch && !allBatches.some(b => b.batchId === newBatch.args.batchId)) {
+      if (newBatchEvent) {
         const fetchNewBatch = async () => {
           try {
+            const batchId = Number(newBatchEvent.args.batchId); // Convert BigInt to Number
             const cropData = await readContract({
               contract: productTraceabilityContract,
               method: "function cropBatches(uint256) view returns (address, string, uint256, string, uint256, string, uint256, string)",
-              params: [newBatch.args.batchId],
+              params: [batchId],
             });
 
             const processedData = await readContract({
               contract: productTraceabilityContract,
               method: "function processedBatches(uint256) view returns (address, uint256, uint256, string, uint256, string, string)",
-              params: [newBatch.args.batchId],
+              params: [batchId],
             });
 
             const cropDetails = {
@@ -142,16 +154,13 @@ export default function Products() {
 
             const isProcessed = processedData && processedData[0] !== "0x0000000000000000000000000000000000000000";
 
-            setAllBatches(prev => [
-              ...prev,
-              {
-                batchId: newBatch.args.batchId,
-                cropDetails,
-                isProcessed
-              }
-            ]);
+            setAllBatches(prev => {
+              const updatedMap = new Map(prev.map(batch => [batch.batchId, batch]));
+              updatedMap.set(batchId, { batchId, cropDetails, isProcessed });
+              return Array.from(updatedMap.values()).sort((a, b) => a.batchId - b.batchId);
+            });
           } catch (error) {
-            console.error("Error fetching new batch:", error);
+            console.error("Error fetching new batch from event:", error);
           }
         };
         fetchNewBatch();
@@ -166,7 +175,7 @@ export default function Products() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-emerald-700">My Crop Batches</h1>
             <button
-              onClick={() => navigate("/farmer-dashboard")}
+              onClick={() => navigate("/farmer/dashboard")}
               className="bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Back to Dashboard
@@ -199,31 +208,30 @@ export default function Products() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {batchId.toString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.productName || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {cropDetails.productName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.quantity?.toString() || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {cropDetails.quantity}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.qualityGrade || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {cropDetails.qualityGrade}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.harvestDate 
-                          ? new Date(cropDetails.harvestDate * 1000).toLocaleDateString() 
-                          : "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(Number(cropDetails.harvestDate) * 1000).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cropDetails.basePricePerKg 
-                          ? `Rs. ${cropDetails.basePricePerKg / 100}` 
-                          : "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        Rs. {Number(cropDetails.basePricePerKg) / 100}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          isProcessed 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span
+                          className={
+                            `px-2 inline-flex text-xs leading-5 font-semibold rounded-full ` +
+                            (isProcessed
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800")
+                          }
+                        >
                           {isProcessed ? "Processed" : "Pending"}
                         </span>
                       </td>

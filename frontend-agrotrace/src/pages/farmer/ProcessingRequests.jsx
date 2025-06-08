@@ -17,6 +17,8 @@ const ProcessingRequests = () => {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showProcessForm, setShowProcessForm] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(null);
+  const [approvingBatchId, setApprovingBatchId] = useState(null);
+  const [rejectingBatchId, setRejectingBatchId] = useState(null);
 
   // Prepare events for real-time updates
   const processingRequestedEvent = prepareEvent({
@@ -142,6 +144,7 @@ const ProcessingRequests = () => {
   }, [batchCounter, account?.address, requestEvents]);
 
   const handleApprove = async (batchId) => {
+    setApprovingBatchId(batchId);
     try {
       const transaction = prepareContractCall({
         contract: productTraceabilityContract,
@@ -152,21 +155,24 @@ const ProcessingRequests = () => {
       sendApproveTransaction(transaction, {
         onSuccess: () => {
           toast.success("Processing request approved successfully!");
-          // Remove the approved request from the list immediately for better UX
           setRequests(requests.filter(req => req.batchId !== batchId));
+          setApprovingBatchId(null);
         },
         onError: (error) => {
           toast.error("Failed to approve processing request");
           console.error(error);
+          setApprovingBatchId(null);
         }
       });
     } catch (error) {
       toast.error("Failed to prepare transaction");
       console.error(error);
+      setApprovingBatchId(null);
     }
   };
 
   const handleReject = async (batchId) => {
+    setRejectingBatchId(batchId);
     try {
       const transaction = prepareContractCall({
         contract: productTraceabilityContract,
@@ -177,17 +183,19 @@ const ProcessingRequests = () => {
       sendRejectTransaction(transaction, {
         onSuccess: () => {
           toast.success("Processing request rejected successfully!");
-           // Remove the rejected request from the list immediately
           setRequests(requests.filter(req => req.batchId !== batchId));
+          setRejectingBatchId(null);
         },
         onError: (error) => {
           toast.error("Failed to reject processing request");
           console.error(error);
+          setRejectingBatchId(null);
         }
       });
     } catch (error) {
       toast.error("Failed to prepare transaction");
       console.error(error);
+      setRejectingBatchId(null);
     }
   };
 
@@ -276,31 +284,31 @@ const ProcessingRequests = () => {
           {requests.map((batch) => (
             <div key={batch.batchId} className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-start mb-4">
-                <div>
+                    <div>
                   <h3 className="text-lg font-semibold">{batch.cropBatch.productName}</h3>
                   <p className="text-gray-600">Trader: {batch.traderName}</p>
                 </div>
                 {getStatusBadge(batch.request)}
-              </div>
-              
+                    </div>
+                    
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
+                      <div>
                   <p className="text-sm text-gray-600">Quantity</p>
                   <p className="font-medium">{formatQuantity(batch.cropBatch.quantity)}</p>
-                </div>
+                          </div>
                 <div>
                   <p className="text-sm text-gray-600">Quality Grade</p>
                   <p className="font-medium">{batch.cropBatch.qualityGrade}</p>
-                </div>
+                          </div>
                 <div>
                   <p className="text-sm text-gray-600">Base Price</p>
                   <p className="font-medium">{formatPrice(batch.cropBatch.basePricePerKg)}/kg</p>
-                </div>
+                          </div>
                 <div>
                   <p className="text-sm text-gray-600">Proposed Price</p>
                   <p className="font-medium">{formatPrice(batch.request.proposedFinalPrice)}/kg {calculatePriceDifference(batch.request.proposedFinalPrice, batch.cropBatch.basePricePerKg)}</p>
-                </div>
-              </div>
+                        </div>
+                      </div>
 
               {batch.request.isRejected && (
                 <div className="mb-4">
@@ -314,7 +322,7 @@ const ProcessingRequests = () => {
                     </p>
                   )}
 
-                </div>
+                          </div>
               )}
 
               <div className="flex justify-end space-x-3">
@@ -323,18 +331,18 @@ const ProcessingRequests = () => {
                    <>
                      <button
                        onClick={() => handleApprove(batch.batchId)}
-                       disabled={isApprovePending || isRejectPending} // Disable while any action is pending
+                       disabled={approvingBatchId === batch.batchId || rejectingBatchId !== null}
                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                      >
-                       {isApprovePending ? 'Approving...' : 'Approve'}
+                       {approvingBatchId === batch.batchId ? 'Approving...' : 'Approve'}
                      </button>
-                     <button
+                      <button
                        onClick={() => handleReject(batch.batchId)}
-                        disabled={isApprovePending || isRejectPending} // Disable while any action is pending
+                        disabled={rejectingBatchId === batch.batchId || approvingBatchId !== null}
                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
-                     >
-                        {isRejectPending ? 'Rejecting...' : 'Reject'}
-                     </button>
+                      >
+                        {rejectingBatchId === batch.batchId ? 'Rejecting...' : 'Reject'}
+                      </button>
                    </>
                 )}
               </div>

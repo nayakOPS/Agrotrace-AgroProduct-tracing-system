@@ -26,6 +26,9 @@ const ProcessBatchForm = ({ batch, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Convert harvestDate from BigInt to a Date object for validation
+  const harvestDate = batch?.cropDetails?.harvestDate ? new Date(Number(batch.cropDetails.harvestDate) * 1000) : null;
+
   // Example options for dropdowns
   const storageOptions = ['Select Storage', 'Refrigerated', 'Room Temperature', 'Frozen', 'Controlled Atmosphere'];
   const transportOptions = ['Select Transport', 'Truck', 'Train', 'Ship', 'Air', 'Drone'];
@@ -38,24 +41,34 @@ const ProcessBatchForm = ({ batch, onClose }) => {
       return false;
     }
     
-    const processingTimestamp = Math.floor(new Date(formData.processingDate).getTime() / 1000);
-    const packagingTimestamp = Math.floor(new Date(formData.packagingDate).getTime() / 1000);
+    const processingTimestamp = new Date(formData.processingDate).getTime(); // Milliseconds
+    const packagingTimestamp = new Date(formData.packagingDate).getTime(); // Milliseconds
+    const now = Date.now(); // Current time in milliseconds
 
     if (isNaN(processingTimestamp) || isNaN(packagingTimestamp)) {
         setError('Invalid date format.');
         return false;
     }
 
+    // Validate Processing Date: Must be after harvest date and not in the future
+    if (harvestDate && processingTimestamp < harvestDate.getTime()) {
+        setError(`Processing date must be after harvest date: ${harvestDate.toLocaleDateString()}`);
+        return false;
+    }
+    if (processingTimestamp > now) {
+        setError('Processing date cannot be in the future.');
+        return false;
+    }
+
+    // Validate Packaging Date: Must be after processing date and not in the future
     if (packagingTimestamp <= processingTimestamp) {
       setError('Packaging date must be after processing date.');
       return false;
     }
-     // Also check if dates are not in the future (optional but good practice)
-     const now = Math.floor(Date.now() / 1000);
-     if (processingTimestamp > now || packagingTimestamp > now) {
-        setError('Dates cannot be in the future.');
+    if (packagingTimestamp > now) {
+        setError('Packaging date cannot be in the future.');
         return false;
-     }
+    }
 
     if (formData.storageConditions === 'Select Storage' || !formData.storageConditions.trim()) {
       setError('Please select storage conditions.');
@@ -87,8 +100,8 @@ const ProcessBatchForm = ({ batch, onClose }) => {
         method: "function processBatch(uint256 _batchId, uint256 _processingDate, uint256 _packagingDate, string _storageConditions, string _transportDetails, string _qrCodeId)",
         params: [
           BigInt(batch.batchId),
-          BigInt(Math.floor(new Date(formData.processingDate).getTime() / 1000)),
-          BigInt(Math.floor(new Date(formData.packagingDate).getTime() / 1000)),
+          BigInt(Math.floor(new Date(formData.processingDate).getTime() / 1000)), // Convert to seconds
+          BigInt(Math.floor(new Date(formData.packagingDate).getTime() / 1000)), // Convert to seconds
           formData.storageConditions,
           formData.transportDetails,
           formData.qrCodeId,
@@ -118,7 +131,7 @@ const ProcessBatchForm = ({ batch, onClose }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl p-8 max-w-2xl w-full shadow-lg border border-gray-200">
+    <div className="bg-white rounded-xl p-8 w-full shadow-lg border border-gray-200">
       <h3 className="text-2xl font-bold text-green-700 mb-6">Process Batch</h3>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -129,7 +142,7 @@ const ProcessBatchForm = ({ batch, onClose }) => {
               Processing Date
             </label>
             <input
-              type="datetime-local"
+              type="date"
               required
               value={formData.processingDate}
               onChange={(e) => {
@@ -139,9 +152,12 @@ const ProcessBatchForm = ({ batch, onClose }) => {
                 }));
                 setError(null);
               }}
+              max={new Date().toISOString().split('T')[0]} // Max date is today
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
             />
-             <p className="mt-1 text-sm text-gray-500">Must be after harvest date (N/A here) and not in the future</p>
+             <p className="mt-1 text-sm text-gray-500">
+              Must be after harvest date {harvestDate ? `(${harvestDate.toLocaleDateString()})` : ''} and not in the future
+            </p>
           </div>
           
           {/* Packaging Date */}
@@ -150,7 +166,7 @@ const ProcessBatchForm = ({ batch, onClose }) => {
               Packaging Date
             </label>
             <input
-              type="datetime-local"
+              type="date"
               required
               value={formData.packagingDate}
               onChange={(e) => {
@@ -160,6 +176,8 @@ const ProcessBatchForm = ({ batch, onClose }) => {
                 }));
                 setError(null);
               }}
+              min={formData.processingDate} // Min date is the selected processing date
+              max={new Date().toISOString().split('T')[0]} // Max date is today
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
             />
             <p className="mt-1 text-sm text-gray-500">Must be after processing date and not in the future</p>
@@ -208,7 +226,7 @@ const ProcessBatchForm = ({ batch, onClose }) => {
             }}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 pr-8"
           >
-             {transportOptions.map(option => (
+            {transportOptions.map(option => (
               <option key={option} value={option === 'Select Transport' ? '' : option} disabled={option === 'Select Transport'}>
                 {option}
               </option>
@@ -216,54 +234,48 @@ const ProcessBatchForm = ({ batch, onClose }) => {
           </select>
         </div>
 
-        {/* QR Code ID */}
+        {/* QR Code Identifier */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             QR Code Identifier
           </label>
-          <div className="mt-1 flex rounded-md shadow-sm">
+          <div className="flex rounded-md shadow-sm">
             <input
               type="text"
-              required
+              readOnly
               value={formData.qrCodeId}
-              onChange={(e) => {
-                setFormData(prev => ({
-                  ...prev,
-                  qrCodeId: e.target.value
-                }));
-                setError(null);
-              }}
-              className="block w-full rounded-l-md border-gray-300 focus:border-green-500 focus:ring-green-500 flex-1 min-w-0"
-              placeholder="Enter QR code ID..."
-              readOnly // Make it read-only since it's randomly generated
+              className="flex-1 block w-full rounded-none rounded-l-md border-gray-300 focus:border-green-500 focus:ring-green-500 sm:text-sm bg-gray-50 text-gray-700 cursor-not-allowed"
             />
             <button
               type="button"
               onClick={handleRegenerateQr}
-              className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-green-500 text-white text-sm font-medium hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
               Regenerate
             </button>
           </div>
-           <p className="mt-1 text-sm text-gray-500">This QR code will be permanently associated with this batch on the blockchain</p>
+          <p className="mt-1 text-sm text-gray-500">This QR code will be permanently associated with this batch on the blockchain</p>
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 mt-2">{error}</p>
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Error:</strong>
+            <span className="block sm:inline"> {error}</span>
+          </div>
         )}
 
-        <div className="flex justify-end space-x-3 pt-4">
+        <div className="flex justify-end space-x-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            className="inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+            className="inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Processing...' : 'Process Batch'}
           </button>

@@ -151,9 +151,12 @@ export default function Products() {
         }
 
         const results = await Promise.all(batchPromises);
-        const uniqueBatches = results.filter(batch => batch !== null);
-        console.log("Final processed batches (filtered):", uniqueBatches);
-        setAllBatches(uniqueBatches);
+        // Deduplicate by batchId
+        const batchMap = new Map();
+        results.forEach(batch => {
+          if (batch) batchMap.set(batch.batchId, batch);
+        });
+        setAllBatches(Array.from(batchMap.values()));
       } catch (error) {
         console.error("Error fetching batches:", error);
         setError("Failed to fetch batches");
@@ -249,16 +252,9 @@ export default function Products() {
       const validNewBatches = newBatches.filter(batch => batch !== null);
       if (validNewBatches.length > 0) {
         setAllBatches(prev => {
-          // Combine and deduplicate batches
-          const combined = [...prev, ...validNewBatches];
-          return combined.reduce((acc, current) => {
-            const x = acc.find(item => item.batchId === current.batchId);
-            if (!x) {
-              return acc.concat([current]);
-            } else {
-              return acc;
-            }
-          }, []);
+          const updatedMap = new Map(prev.map(batch => [batch.batchId, batch]));
+          validNewBatches.forEach(batch => updatedMap.set(batch.batchId, batch));
+          return Array.from(updatedMap.values()).sort((a, b) => Number(a.batchId) - Number(b.batchId));
         });
       }
     };
@@ -266,17 +262,10 @@ export default function Products() {
     handleNewBatch();
   }, [processedEvents, account?.address, isLoading, allBatches]);
 
-  // Create a unique list of batches for rendering
-  const uniqueBatchesToRender = React.useMemo(() => {
-    return allBatches.reduce((acc, current) => {
-      const x = acc.find(item => item.batchId === current.batchId);
-      if (!x) {
-        return acc.concat([current]);
-      } else {
-        return acc;
-      }
-    }, []);
-  }, [allBatches]);
+  // Only show unique batchIds in the table
+  const uniqueBatchesToRender = allBatches.filter((batch, idx, arr) =>
+    arr.findIndex(b => Number(b.batchId) === Number(batch.batchId)) === idx
+  );
 
   const handleGenerateQR = async (batchId) => {
     try {
@@ -312,7 +301,7 @@ export default function Products() {
         certification: productHistory.quality.certificationNumber,
         qrCodeId: newQrCodeId,
         batchId: batchId,
-        scanUrl: "http://localhost:5174/scan-qr"
+        scanUrl: "https://agrotraces.netlify.app/scan-qr"
       };
       
       setQrValue(JSON.stringify(qrData));
@@ -470,64 +459,64 @@ export default function Products() {
             </button>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Farmer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {allBatches.map(({ batchId, processedDetails, cropDetails, productHistory }) => (
-                  <tr key={`${batchId}-${cropDetails.productName}`} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {batchId.toString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {cropDetails.productName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Farmer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                {uniqueBatchesToRender.map(({ batchId, processedDetails, cropDetails, productHistory }) => (
+                    <tr key={Number(batchId).toString()} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {batchId.toString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {cropDetails.productName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {productHistory.farmerName 
                         ? productHistory.farmerName
                         : formatAddress(cropDetails.farmerAddress)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {processedDetails.processingDate 
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.processingDate 
                         ? formatDate(processedDetails.processingDate)
-                        : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {processedDetails.finalPricePerKg 
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.finalPricePerKg 
                         ? `Rs. ${(processedDetails.finalPricePerKg / 100).toFixed(2)}`
-                        : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {processedDetails.qrCodeId ? (
-                        <button 
-                          onClick={() => handleGenerateQR(batchId)}
-                          className="text-emerald-600 hover:underline"
-                        >
-                          {processedDetails.qrCodeId}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleGenerateQR(batchId)}
-                          className="text-emerald-600 hover:underline"
-                        >
-                          Generate QR
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {processedDetails.qrCodeId ? (
+                          <button 
+                            onClick={() => handleGenerateQR(batchId)}
+                            className="text-emerald-600 hover:underline"
+                          >
+                            {processedDetails.qrCodeId}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGenerateQR(batchId)}
+                            className="text-emerald-600 hover:underline"
+                          >
+                            Generate QR
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
         </div>
 
         {/* QR Code Attachment Demonstration Section */}

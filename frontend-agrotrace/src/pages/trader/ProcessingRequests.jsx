@@ -214,87 +214,83 @@ const ProcessingRequests = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6">Processing Requests</h2>
-      
-      {requests.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg p-6 text-center">
-          <p className="text-gray-600">No processing requests found.</p>
-        </div>
-      ) : (
-        <div className="grid gap-6">
-          {requests.map((batch) => (
-            <div key={batch.batchId} className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{batch.cropBatch.productName}</h3>
-                  <p className="text-gray-600">Farmer: {batch.farmerName}</p>
-                </div>
-                {getStatusBadge(batch.request)}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600">Quantity</p>
-                  <p className="font-medium">{formatQuantity(batch.cropBatch.quantity)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Quality Grade</p>
-                  <p className="font-medium">{batch.cropBatch.qualityGrade}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Base Price</p>
-                  <p className="font-medium">{formatPrice(batch.cropBatch.basePricePerKg)}/kg</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Proposed Price</p>
-                  {/* Removed price difference calculation here */}
-                  <p className="font-medium">{formatPrice(batch.request.proposedFinalPrice)}/kg</p>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gradient-to-r from-emerald-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h1 className="text-3xl font-bold text-emerald-700 mb-6">Processing Requests</h1>
+          
+          {/* Main Content */}
+          {loading ? (
+            <LoadingSpinner />
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">{error}</div>
+          ) : requests.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No processing requests found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {requests.map((req) => (
+                <div key={req.batchId} className="bg-gray-50 p-6 rounded-lg shadow border border-gray-200">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-800 mb-1">
+                        {req.cropBatch.productName} ({formatQuantity(req.cropBatch.quantity)})
+                      </h2>
+                      <p className="text-sm text-gray-600">Farmer: {req.farmerName}</p>
+                    </div>
+                    {getStatusBadge(req.request)}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-700 mb-4">
+                    <div>
+                      <p><span className="font-semibold">Quantity:</span> {formatQuantity(req.cropBatch.quantity)}</p>
+                      <p><span className="font-semibold">Quality Grade:</span> {req.cropBatch.qualityGrade}</p>
+                    </div>
+                    <div>
+                      <p><span className="font-semibold">Base Price:</span> {formatPrice(req.cropBatch.basePricePerKg)}/kg</p>
+                      <p><span className="font-semibold">Proposed Price:</span> {formatPrice(req.request.proposedFinalPrice)}/kg</p>
+                    </div>
+                    <div>
+                      <p><span className="font-semibold">Harvest Date:</span> {formatDate(req.cropBatch.harvestDate)}</p>
+                      <p><span className="font-semibold">Location:</span> {req.cropBatch.farmLocation}</p>
+                    </div>
+                  </div>
 
-              {batch.request.isRejected && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600">Request rejected. You can request again after cooldown.</p>
-                  {/* Use the utility function to display cooldown */}
-                  {canRequestProcessing(batch.request).canRequest ? (
-                     <p className="font-medium text-green-600">Ready to request again</p>
-                  ) : (
-                    <p className="font-medium text-yellow-600">
-                       Cooldown ends: {formatCooldownTime(batch.request.requestTimestamp)}
-                    </p>
+                  {req.request.isApproved && !req.request.isRejected && (
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => handleProcessClick(req)}
+                        className="bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors shadow-md"
+                      >
+                        Process Batch
+                      </button>
+                    </div>
+                  )}
+
+                  {req.request.isRejected && (
+                    <div className="mt-2">
+                      <p className="text-red-600 text-sm">This request was rejected. You can re-request after the cooldown period.</p>
+                      {!canRequestProcessing(req.request).canRequest && (
+                        <p className="text-yellow-600 text-sm font-medium">
+                          Cooldown ends: {formatCooldownTime(req.request.requestTimestamp)}
+                        </p>
+                      )}
+                    </div>
                   )}
 
                 </div>
-              )}
-
-              {batch.request.isApproved && !batch.request.isRejected && ( // Only show Process button if approved and not rejected
-                <div className="flex justify-end">
-                   <button
-                     onClick={() => handleProcessClick(batch)} // Pass the batch data to the handler
-                     className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
-                     disabled={showProcessForm} // Disable button while form is open
-                   >
-                     Process Batch
-                   </button>
-                </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
 
-       {/* Process Batch Form Modal */}
-       {showProcessForm && selectedBatch && (
-          <ProcessBatchForm
-             batch={selectedBatch} // Pass selected batch data
-             onClose={handleCloseProcessForm}
-             onProcessed={() => {
-                handleCloseProcessForm();
-                // Optionally refetch requests or update state after processing
-             }} 
-          />
-       )}
+        {/* Process Batch Form Modal (visible when showProcessForm is true) */}
+        {showProcessForm && selectedBatch && (
+          <div className="w-full max-w-6xl mx-auto mt-8">
+            <ProcessBatchForm batch={selectedBatch} onClose={handleCloseProcessForm} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

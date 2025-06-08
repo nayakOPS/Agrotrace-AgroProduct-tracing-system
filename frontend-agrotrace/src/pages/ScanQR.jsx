@@ -76,7 +76,7 @@ const ScanQR = () => {
         });
 
         toast.success('QR Code scanned successfully!');
-        setScanning(false);
+          setScanning(false);
 
       } catch (err) {
         console.error('Error parsing QR data:', err);

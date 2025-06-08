@@ -65,13 +65,13 @@ const Layout = ({ children }) => {
                 <>
                   <Link
                     to="/register-farmer"
-                    className="text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all duration-200"
+                    className="block w-full bg-emerald-500 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                   >
                     Register as Farmer
                   </Link>
                   <Link
                     to="/register-trader"
-                    className="text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all duration-200"
+                    className="block w-full bg-emerald-500 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                   >
                     Register as Trader
                   </Link>
@@ -98,8 +98,8 @@ const Layout = ({ children }) => {
                   termsOfServiceUrl="https://agrotrace.com/terms"
                   privacyPolicyUrl="https://agrotrace.com/privacy"
                   style={{
-                    background: 'linear-gradient(to right, #059669, #0d9488)',
-                    color: 'white',
+                    background: 'white',
+                    color: 'black',
                     borderRadius: '0.5rem',
                     padding: '0.5rem 1rem',
                     fontSize: '0.875rem',
@@ -110,10 +110,11 @@ const Layout = ({ children }) => {
                     width: '100%',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                     '&:hover': {
-                      background: 'linear-gradient(to right, #047857, #0f766e)',
+                      background: '#f0f0f0',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                     }
                   }}
+                  theme="light"
                 />
               </div>
             </div>
@@ -148,14 +149,14 @@ const Layout = ({ children }) => {
                     <>
                       <Link
                         to="/register-farmer"
-                        className="block text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 px-3 py-2 rounded-lg text-base font-medium hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all duration-200"
+                        className="block w-full bg-emerald-500 text-gray-200 px-3 py-2 rounded-lg text-base font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Register as Farmer
                       </Link>
                       <Link
                         to="/register-trader"
-                        className="block text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 px-3 py-2 rounded-lg text-base font-medium hover:bg-emerald-50 dark:hover:bg-gray-800 transition-all duration-200"
+                        className="block w-full bg-emerald-500 text-gray-200 px-3 py-2 rounded-lg text-base font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Register as Trader
@@ -166,7 +167,7 @@ const Layout = ({ children }) => {
                     <div className="w-full">
                       <Link
                         to="/scan-qr"
-                        className="block w-full bg-red-500 text-yellow-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
+                        className="block w-full bg-emerald-500 text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-center shadow-md hover:shadow-lg"
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Scan QR Code
@@ -185,8 +186,8 @@ const Layout = ({ children }) => {
                         termsOfServiceUrl="https://agrotrace.com/terms"
                         privacyPolicyUrl="https://agrotrace.com/privacy"
                         style={{
-                          background: 'linear-gradient(to right, #059669, #0d9488)',
-                          color: 'white',
+                          background: 'white',
+                          color: 'black',
                           borderRadius: '0.5rem',
                           padding: '0.5rem 1rem',
                           fontSize: '0.875rem',
@@ -197,10 +198,11 @@ const Layout = ({ children }) => {
                           width: '100%',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           '&:hover': {
-                            background: 'linear-gradient(to right, #047857, #0f766e)',
+                            background: '#f0f0f0',
                             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                           }
                         }}
+                        theme="light"
                       />
                     </div>
                   </div>
